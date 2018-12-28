@@ -2,10 +2,6 @@
 
 This project provides an elevation service with REST API. It is implemented in C++, with GDAL, libevent, and JSON-C.
 
-You can find the DTM file(s) here: https://data.gov.tw/dataset/35430
-
-For now the ```dem_20m.tif``` of whole Taiwan island was tested.
-
 ## How to Build
 
 This project was developed on Ubuntu 16.04 LTS. You will need to install the following packages by ```apt-get``` before building it:
@@ -35,7 +31,11 @@ Options:
 
 ## How to Run
 
-To run a test daemon on 8080 port:
+Before running the daemon, you should download DTM file here: https://data.gov.tw/dataset/35430
+
+For now only the ```dem_20m.tif``` of whole Taiwan island was tested.
+
+To run a test daemon with ```dem_20m.tif```  on 8080 port:
 
 ```shell
 $ ./moidemd -p 8080 dem_20m.tif
