@@ -31,9 +31,7 @@ Options:
 
 ## How to Run
 
-Before running the daemon, you should download DTM file here: https://data.gov.tw/dataset/35430
-
-For now only the ```dem_20m.tif``` of whole Taiwan island was tested.
+Before running the daemon, you should download [MOI DTM](https://data.gov.tw/dataset/35430) file first. For now only the ```dem_20m.tif``` of whole Taiwan island was tested.
 
 To run a test daemon with ```dem_20m.tif```  on 8080 port:
 
@@ -65,4 +63,3 @@ Array of elevations, in ```double```,  corresponding to input coordinates. Upon 
 
 * The requested coordinate was outside the DEM.
 * The requested coordinate was inside the DEM, but elevation was not defined.
-
