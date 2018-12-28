@@ -24,6 +24,7 @@ static void do_term(int sig, short events, void *arg) {
 
 static void altitude_request_cb(struct evhttp_request *req, void *arg);
 
+static const char *defaultAddress = "0.0.0.0";
 static const int defaultPort = 80;
 static const char *defaultSRS = "WGS84";
 static const char *defaultURI = "/v1/altitudes";
@@ -35,12 +36,15 @@ int main(int argc, char **argv) {
     struct evhttp_bound_socket *handle = NULL;
 	struct event *term = NULL;
     int opt, ret = 0, port = defaultPort;
+    const char *addr = defaultAddress;
     const char *srs = defaultSRS;
     const char *uri = defaultURI;
 
-    while ((opt = getopt(argc, argv, "p:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "a:p:u:s:")) != -1) {
 		switch (opt) {
+			case 'a': addr = optarg; break;
 			case 'p': port = atoi(optarg); break;
+			case 'u': uri = optarg; break;
 			case 's': srs = optarg; break;
 			default : fprintf(stderr, "Unknown option %c\n", opt); break;
 		}
@@ -49,7 +53,8 @@ int main(int argc, char **argv) {
     if (optind >= argc || (argc-optind) > 1) {
 		fprintf(stdout, "Usage: %s [options] <DEM file>\n", argv[0]);
 		fprintf(stdout, "Options:\n");
-		fprintf(stdout, "    -p <port> : Port to bind for HTTP (default: %d)\n", defaultPort);
+		fprintf(stdout, "    -a <addr> : Address to bind HTTP (default: %s)\n", defaultAddress);
+		fprintf(stdout, "    -p <port> : Port to bind HTTP (default: %d)\n", defaultPort);
 		fprintf(stdout, "    -u <URI>  : URI to serve REST (default: %s)\n", defaultURI);
 		fprintf(stdout, "    -s <SRS>  : SRS of requested coordinates (default: %s)\n", defaultSRS);
 		exit(1);
@@ -85,9 +90,9 @@ int main(int argc, char **argv) {
 
     evhttp_set_cb(http, uri, altitude_request_cb, ctx);
 
-    handle = evhttp_bind_socket_with_handle(http, "0.0.0.0", port);
+    handle = evhttp_bind_socket_with_handle(http, addr, port);
 	if (!handle) {
-		fprintf(stderr, "Failed to bind to port %d: %s\n", port, strerror(errno));
+		fprintf(stderr, "Failed to bind port %d: %s\n", port, strerror(errno));
 		ret = 1;
 		goto err;
 	}
@@ -105,7 +110,7 @@ int main(int argc, char **argv) {
 		goto err;
     }
 
-    fprintf(stderr, "Listening port %d...\n", port);
+    fprintf(stderr, "Serving %s: http://%s:%d%s\n", filename, addr, port, uri);
 	ret = event_base_dispatch(base);
 
 err:
