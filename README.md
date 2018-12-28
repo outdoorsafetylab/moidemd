@@ -8,7 +8,7 @@ For now the ```dem_20m.tif``` of whole Taiwan island was tested.
 
 ## How to Build
 
-This project developed on Ubuntu 16.04LTS. You will need to install the following packages by ```apt-get```:
+This project was developed on Ubuntu 16.04 LTS. You will need to install the following packages by ```apt-get``` before building it:
 
 * build-essential
 * libgdal-dev
