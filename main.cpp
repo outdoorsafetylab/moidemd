@@ -27,7 +27,7 @@ static void altitude_request_cb(struct evhttp_request *req, void *arg);
 static const char *defaultAddress = "0.0.0.0";
 static const int defaultPort = 80;
 static const char *defaultSRS = "WGS84";
-static const char *defaultURI = "/v1/altitudes";
+static const char *defaultURI = "/v1/elevations";
 
 int main(int argc, char **argv) {
     context *ctx = NULL;
