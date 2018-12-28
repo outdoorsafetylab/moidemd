@@ -142,7 +142,7 @@ void altitude_request_cb(struct evhttp_request *req, void *arg) {
     case EVHTTP_REQ_POST:
         break;
     default:
-        evhttp_send_reply(req, 405, "Method Now Allowed", NULL);
+        evhttp_send_error(req, 405, NULL);
         return;
     }
 
