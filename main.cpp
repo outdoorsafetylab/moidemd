@@ -220,7 +220,8 @@ void altitude_request_cb(struct evhttp_request *req, void *arg) {
             json_object_array_add(result, val);
         }
         const char *string = json_object_to_json_string(result);
-        if (evbuffer_add(output, string, strlen(string)) != 0) {
+        if (evbuffer_add(output, string, strlen(string)) != 0
+                || evbuffer_add(output, "\n", 1) != 0) {
             fprintf(stderr, "Failed to dump JSON string: %s\n", strerror(errno));
             goto err;
         }
