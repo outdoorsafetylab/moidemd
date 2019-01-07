@@ -31,6 +31,11 @@ Options:
 
 ## How to Run
 
+If development packages was not installed, you may need the follow runtime depedency packages installed:
+
+- libevent-2.0-5
+- libgdal1i
+
 Before running the daemon, you should download [MOI DTM](https://data.gov.tw/dataset/35430) file first. For now only the ```dem_20m.tif``` of whole Taiwan island was tested.
 
 To run a test daemon with ```dem_20m.tif```  on 8080 port:
@@ -45,6 +50,45 @@ To query the elevation of Mt. Jade of this test daemon:
 ```shell
 $ curl -XPOST --data '[[120.957283,23.47]]' http://127.0.0.1:8080/v1/elevations
 [ 3946.000000 ]
+```
+
+## Install as ```systemd``` Service
+
+Example ```systemd``` service file at ```/etc/systemd/system/moidem.service```:
+
+```shell
+[Unit]
+Description=moidem elevation service
+Requires=network.target
+After=multi-user.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=0
+ExecStart=/usr/local/sbin/moidemd /etc/dem_20m.tif
+
+[Install]
+WantedBy=multi-user.target
+```
+
+To enable this service:
+
+```shell
+sudo systemctl enable moidem.service
+```
+
+To start the service:
+
+```shell
+sudo systemctl start moidem.service
+```
+
+To check status of the service:
+
+```shell
+systemctl status moidem.service
 ```
 
 ## API Specification
