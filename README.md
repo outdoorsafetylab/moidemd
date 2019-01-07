@@ -59,7 +59,7 @@ Upon unexpected request body, ```400 Bad Request``` will be replied.
 
 #### Response Body
 
-Array of elevations, in ```double```,  corresponding to input coordinates. Upon the following scenario, ```NaN``` will be returned as elevation value:
+Array of elevations, in ```double```,  corresponding to input coordinates. Upon the following scenario, ```null``` will be returned as elevation value:
 
 * The requested coordinate was outside the DEM.
 * The requested coordinate was inside the DEM, but elevation was not defined.

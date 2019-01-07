@@ -7,6 +7,7 @@
 #include <event2/buffer.h>
 #include <event2/http.h>
 #include <json-c/json.h>
+#include <math.h>
 
 static double GetAltitude(GDALDatasetH, int, int, int);
 static char *SanitizeSRS(const char *);
@@ -24,6 +25,7 @@ static void do_term(int sig, short events, void *arg) {
 
 static void altitude_request_cb(struct evhttp_request *req, void *arg);
 
+static const char *contentType = "application/json";
 static const char *defaultAddress = "0.0.0.0";
 static const int defaultPort = 80;
 static const char *defaultSRS = "WGS84";
@@ -212,10 +214,9 @@ void altitude_request_cb(struct evhttp_request *req, void *arg) {
                 goto done;
             }
             double alt = ContextGetAltitude(ctx, xVal, yVal);
-            json_object *val = json_object_new_double(alt);
-            if (!val) {
-                fprintf(stderr, "Failed to create JSON object for result: %s\n", strerror(errno));
-                goto err;
+            json_object *val = NULL;
+            if (!isnan(alt)) {
+                val = json_object_new_double(alt);
             }
             json_object_array_add(result, val);
         }
@@ -226,6 +227,7 @@ void altitude_request_cb(struct evhttp_request *req, void *arg) {
             goto err;
         }
     }
+    evhttp_add_header(evhttp_request_get_output_headers(req), "Content-Type", contentType);
     evhttp_send_reply(req, 200, "OK", output);
     goto done;
 err:
