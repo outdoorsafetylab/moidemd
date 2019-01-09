@@ -23,7 +23,7 @@ static void do_term(int sig, short events, void *arg) {
 	fprintf(stderr, "Got signal %d, terminating...\n", sig);
 }
 
-static void altitude_request_cb(struct evhttp_request *req, void *arg);
+static void elevation_request_cb(struct evhttp_request *req, void *arg);
 
 static const char *contentType = "application/json";
 static const char *defaultAddress = "0.0.0.0";
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
 		goto err;
 	}
 
-    evhttp_set_cb(http, uri, altitude_request_cb, ctx);
+    evhttp_set_cb(http, uri, elevation_request_cb, ctx);
 
     handle = evhttp_bind_socket_with_handle(http, addr, port);
 	if (!handle) {
@@ -132,7 +132,7 @@ err:
 	return ret;
 }
 
-void altitude_request_cb(struct evhttp_request *req, void *arg) {
+void elevation_request_cb(struct evhttp_request *req, void *arg) {
     context *ctx = (context *)arg;
     char *data = NULL;
     json_object *coords, *json = NULL, *result = NULL;

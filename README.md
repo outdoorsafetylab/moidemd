@@ -33,8 +33,8 @@ Options:
 
 If development packages was not installed, you may need the follow runtime depedency packages installed:
 
-- libevent-2.0-5
-- libgdal1i
+* libevent-2.0-5
+* libgdal1i
 
 Before running the daemon, you should download [MOI DTM](https://data.gov.tw/dataset/35430) file first. For now only the ```dem_20m.tif``` of whole Taiwan island was tested.
 
