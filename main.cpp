@@ -172,9 +172,10 @@ void elevation_request_cb(struct evhttp_request *req, void *arg) {
         goto err;
     }
 
-    json = json_tokener_parse(data);
+    json_tokener_error err;
+    json = json_tokener_parse_verbose(data, &err);
     if (!json) {
-        fprintf(stderr, "Failed to parse input buffer: %s\n", strerror(errno));
+        fprintf(stderr, "Failed to parse input buffer: %s\n", json_tokener_error_desc(err));
         goto err;
     }
     
@@ -190,6 +191,8 @@ void elevation_request_cb(struct evhttp_request *req, void *arg) {
     } else if (n == 0) {
         evbuffer_add(output, "[]", 2);
     } else {
+        struct timeval start, end;
+        gettimeofday(&start, NULL);
         result = json_object_new_array();
         if (!result) {
             fprintf(stderr, "Failed to create JSON array for results: %s\n", strerror(errno));
@@ -226,6 +229,14 @@ void elevation_request_cb(struct evhttp_request *req, void *arg) {
             fprintf(stderr, "Failed to dump JSON string: %s\n", strerror(errno));
             goto err;
         }
+        gettimeofday(&end, NULL);
+        time_t sec = end.tv_sec - start.tv_sec;
+        time_t usec = end.tv_usec - start.tv_usec;
+        if (usec < 0) {
+            usec += 1000000;
+            sec--;
+        }
+        fprintf(stdout, "Converted %d point(s) in %ld.%06ld sec\n", n, sec, usec);
     }
     evhttp_add_header(evhttp_request_get_output_headers(req), "Content-Type", contentType);
     evhttp_send_reply(req, 200, "OK", output);
