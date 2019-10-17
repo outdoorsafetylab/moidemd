@@ -4,7 +4,7 @@ This project provides an elevation service with REST API. It is implemented in C
 
 ## How to Build
 
-This project was developed on Ubuntu 16.04 LTS. You will need to install the following packages by ```apt-get``` before building it:
+This project was developed on Ubuntu 18.04 LTS. You will need to install the following packages by ```apt-get``` before building it:
 
 * build-essential
 * libgdal-dev
@@ -33,23 +33,23 @@ Options:
 
 If development packages was not installed, you may need the follow runtime dependency packages installed:
 
-* libevent-2.0-5
-* libgdal1i
+* libevent-2.1-6
+* libgdal20
 
-Before running the daemon, you should download [MOI DTM](https://data.gov.tw/dataset/35430) file first. For now only the ```dem_20m.tif``` of whole Taiwan island was tested.
+Before running the daemon, you should download [MOI DTM](https://data.gov.tw/dataset/103884) file first. For now only the ```DEM_20m.tif``` of whole Taiwan island was tested.
 
-To run a test daemon with ```dem_20m.tif```  on 8080 port:
+To run a test daemon with ```DEM_20m.tif```  on 8080 port:
 
 ```shell
-$ ./moidemd -p 8080 dem_20m.tif
-Serving dem_20m.tif: http://0.0.0.0:8080/v1/elevations
+$ ./moidemd -p 8080 DEM_20m.tif
+Serving DEM_20m.tif: http://0.0.0.0:8080/v1/elevations
 ```
 
 To query the elevation of Mt. Jade of this test daemon:
 
 ```shell
 $ curl -XPOST --data '[[120.957283,23.47]]' http://127.0.0.1:8080/v1/elevations
-[ 3946.000000 ]
+[ 3948.7080078125 ]
 ```
 
 ## Install as ```systemd``` Service
@@ -67,7 +67,7 @@ Type=simple
 Restart=always
 RestartSec=10
 StartLimitIntervalSec=0
-ExecStart=/usr/local/sbin/moidemd /etc/dem_20m.tif
+ExecStart=/usr/local/sbin/moidemd /etc/DEM_20m.tif
 
 [Install]
 WantedBy=multi-user.target
