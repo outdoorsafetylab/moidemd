@@ -31,7 +31,7 @@ Options:
 
 ## How to Run
 
-If development packages was not installed, you may need the follow runtime depedency packages installed:
+If development packages was not installed, you may need the follow runtime dependency packages installed:
 
 * libevent-2.0-5
 * libgdal1i
