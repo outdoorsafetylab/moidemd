@@ -1,7 +1,13 @@
 #include <stdio.h>
+#ifdef ALPINE
+#include <gdal.h>
+#include <cpl_string.h>
+#include <ogr_spatialref.h>
+#else
 #include <gdal/gdal.h>
 #include <gdal/cpl_string.h>
 #include <gdal/ogr_spatialref.h>
+#endif
 #include <signal.h>
 #include <event2/event.h>
 #include <event2/buffer.h>
