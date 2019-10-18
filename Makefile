@@ -16,7 +16,8 @@ $(MOIDEMD): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
 $(DEM): $(DEMZIP)
-	unzip -D $< $(DEM)
+	unzip $< $(DEM)
+	touch $(DEM)
 
 $(DEMZIP):
 	wget --no-check-certificate -O $(DEMZIP) http://dtm.moi.gov.tw/$(DEMZIP) 

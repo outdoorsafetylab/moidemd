@@ -1,5 +1,11 @@
 steps:
 # This step builds the container image.
+- name: 'gcr.io/$PROJECT_ID/make'
+  id: Prepare
+  args:
+  - 'DEM_20m.tif'
+
+  # This step builds the container image.
 - name: 'gcr.io/cloud-builders/docker'
   id: Build
   args:
