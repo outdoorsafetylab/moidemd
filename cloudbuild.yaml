@@ -13,14 +13,14 @@ steps:
   args:
   - 'build'
   - '-t'
-  - 'gcr.io/$PROJECT_ID/moidemd:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
   - '.'
 
 # This step pushes the image to Container Registry
-# The PROJECT_ID and SHORT_SHA variables are automatically
+# The PROJECT_ID and TAG_NAME variables are automatically
 # replaced by Cloud Build.
 - name: 'gcr.io/cloud-builders/docker'
   id: Push
   args:
   - 'push'
-  - 'gcr.io/$PROJECT_ID/moidemd:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
