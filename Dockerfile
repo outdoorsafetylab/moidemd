@@ -20,6 +20,6 @@ RUN apt-get update && apt-get install -y \
 COPY --from=build /src/moidemd /usr/local/sbin/
 COPY DEM_20m.tif /etc/
 
-CMD /usr/local/sbin/moidemd -p 8080 /etc/DEM_20m.tif
+CMD ["/usr/local/sbin/moidemd", "-p", "8080", "/etc/DEM_20m.tif"]
 
 EXPOSE 8080

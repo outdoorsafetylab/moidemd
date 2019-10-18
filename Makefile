@@ -16,10 +16,10 @@ $(MOIDEMD): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
 $(DEM): $(DEMZIP)
-	unzip -p $< $(DEM) > $(DEM)
+	unzip -D $< $(DEM)
 
 $(DEMZIP):
-	wget --no-check-certificate http://dtm.moi.gov.tw/$(DEMZIP) 
+	wget --no-check-certificate -O $(DEMZIP) http://dtm.moi.gov.tw/$(DEMZIP) 
 
 run: $(MOIDEMD) $(DEM)
 	./$(MOIDEMD) -p 8080 $(DEM)
