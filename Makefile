@@ -1,6 +1,6 @@
 MOIDEMD=moidemd
-DEMZIP=全台灣新版_不分幅_臺灣本島.zip
-DEM=DEM_20m.tif
+DEMZIP=taiwan_TIF格式.7z
+DEM=DEMg_geoid2014_20m_20190515.tif
 CC=g++
 LDFLAGS=-lgdal -levent -ljson-c
 SOURCES := main.cpp
@@ -16,14 +16,14 @@ $(MOIDEMD): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
 $(DEM): $(DEMZIP)
-	unzip $< $(DEM)
+	7za x $< $(DEM)
 	touch $(DEM)
 
 $(DEMZIP):
-	wget --no-check-certificate -O $(DEMZIP) http://dtm.moi.gov.tw/$(DEMZIP) 
+	wget --no-check-certificate -O $(DEMZIP) http://dtm.moi.gov.tw/tif/$(DEMZIP) 
 
 run: $(MOIDEMD) $(DEM)
-	./$(MOIDEMD) -p 8080 $(DEM)
+	./$(MOIDEMD) -p 8082 $(DEM)
 
 docker_builder:
 	docker build --target build -t $(MOIDEMD)/build .

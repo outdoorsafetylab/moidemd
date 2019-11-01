@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
     libevent-2.1-6 libgdal20
 
 COPY --from=build /src/moidemd /usr/local/sbin/
-COPY DEM_20m.tif /etc/
+COPY DEMg_geoid2014_20m_20190515.tif /etc/
 
-CMD ["/usr/local/sbin/moidemd", "-p", "8080", "/etc/DEM_20m.tif"]
+CMD ["/usr/local/sbin/moidemd", "-p", "8080", "/etc/DEMg_geoid2014_20m_20190515.tif"]
 
 EXPOSE 8080

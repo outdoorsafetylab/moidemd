@@ -4,7 +4,7 @@ steps:
   id: Prepare
   args:
   - 'cp'
-  - 'gs://moidemd/DEM_20m.tif'
+  - 'gs://moidemd/DEMg_geoid2014_20m_20190515.tif'
   - '.'
 
   # This step builds the container image.
