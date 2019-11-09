@@ -2,6 +2,8 @@
 
 This project provides an elevation service with REST API. It is implemented in C++, with GDAL, libevent, and JSON-C.
 
+We also built a [cloud-based service](https://outdoorsafetylab.org/elevation_api) backed by this project.
+
 ## How to Build
 
 This project was developed on Ubuntu 18.04 LTS. You will need to install the following packages by ```apt-get``` before building it:
