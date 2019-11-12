@@ -1,3 +1,3 @@
 #!/bin/bash
-docker run --rm jgoclawski/wget wget --no-check-certificate -O dem.7z http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z
-docker run --rm --volume $PWD:/pwd smutdose/7z x dem.7z DEMg_geoid2014_20m_20190515.tif
+docker run --rm --volume $PWD:/pwd jgoclawski/wget wget --no-check-certificate -O /pwd/dem.7z http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z
+docker run --rm --volume $PWD:/pwd smutdose/7z x /pwd/dem.7z DEMg_geoid2014_20m_20190515.tif
