@@ -12,6 +12,11 @@ DEM := DEMg_geoid2014_20m_20190515.tif
 IMAGE_NAME := outdoorsafetylab/moidemd
 REPO_NAME := $(IMAGE_NAME)
 VERSION ?= 1.0.0-dem-20190515
+TAGS ?= 1.0.0-dem-20190515,latest
+
+comma := ,
+eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
+                                $(findstring $(2),$(1))),1)
 
 all: $(EXEC)
 
@@ -36,8 +41,20 @@ docker:
 		$(if $(call eq,$(no-cache),yes),--no-cache --pull,) \
 		-t $(IMAGE_NAME):$(VERSION) .
 
-tag:
-	docker tag $(IMAGE_NAME):$(VERSION) $(REPO_NAME):$(VERSION)
+tags:	
+	$(foreach tag, $(subst $(comma), ,$(TAGS)),$(call docker.tags.do,$(VERSION),$(tag)))
+define docker.tags.do
+	$(eval from := $(strip $(1)))
+	$(eval to := $(strip $(2)))
+	docker tag $(IMAGE_NAME):$(from) $(IMAGE_NAME):$(to)
+endef
+
+post-push-hook:
+	@mkdir -p hooks/
+	docker run --rm -i -v "$(PWD)/post_push.tmpl.php":/post_push.php:ro \
+		php:alpine php -f /post_push.php -- \
+			--image_tags='$(TAGS)' \
+		> hooks/post_push
 
 push:
 	docker push $(REPO_NAME):$(VERSION)
@@ -45,4 +62,4 @@ push:
 clean:
 	@rm -f $(MOIDEMD)
 
-.PHONY: all clean run docker tag push
+.PHONY: all clean run docker tags push post-push-hook
