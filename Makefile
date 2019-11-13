@@ -1,16 +1,22 @@
-MOIDEMD=moidemd
-DEMZIP=taiwan_TIF格式.7z
-DEM=DEMg_geoid2014_20m_20190515.tif
-CC=g++
-LDFLAGS=-lgdal -levent -ljson-c
+EXEC := moidemd
+CC := g++
+LDFLAGS ?=
+LIBS ?= -lgdal -levent -ljson-c
 SOURCES := main.cpp
 # Objs are all the sources, with .cpp replaced by .o
 OBJS := $(SOURCES:.cpp=.o)
 
-all: $(MOIDEMD)
+DEMZIP := dem.7z
+DEM := DEMg_geoid2014_20m_20190515.tif
 
-$(MOIDEMD): $(OBJS)
-	$(CC) $(CFLAGS) -o $(MOIDEMD) $< $(LDFLAGS) $(LIBS)
+IMAGE_NAME := outdoorsafetylab/moidemd
+REPO_NAME := $(IMAGE_NAME)
+VERSION ?= 1.0.0-dem-20190515
+
+all: $(EXEC)
+
+$(EXEC): $(OBJS)
+	$(CC) $(CFLAGS) -o $(EXEC) $< $(LDFLAGS) $(LIBS)
 
 .cpp.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
@@ -22,19 +28,21 @@ $(DEM): $(DEMZIP)
 $(DEMZIP):
 	wget --no-check-certificate -O $(DEMZIP) http://dtm.moi.gov.tw/tif/$(DEMZIP) 
 
-run: $(MOIDEMD) $(DEM)
-	./$(MOIDEMD) -p 8082 $(DEM)
+run: $(EXEC) $(DEM)
+	./$(EXEC) -p 8082 $(DEM)
 
-docker_builder:
-	docker build --target build -t $(MOIDEMD)/build .
+docker:
+	docker build --network=host --force-rm \
+		$(if $(call eq,$(no-cache),yes),--no-cache --pull,) \
+		-t $(IMAGE_NAME):$(VERSION) .
 
-docker_runtime: $(DEM)
-	docker build -t $(MOIDEMD)/run .
+tag:
+	docker tag $(IMAGE_NAME):$(VERSION) $(REPO_NAME):$(VERSION)
 
-docker_run:
-	docker run -d --rm -p 8080:8080 --name $(MOIDEMD) $(MOIDEMD)/run
+push:
+	docker push $(REPO_NAME):$(VERSION)
 
 clean:
 	@rm -f $(MOIDEMD)
 
-.PHONY: all clean
+.PHONY: all clean run docker tag push
