@@ -37,6 +37,29 @@ $(DEMZIP):
 run: $(EXEC) $(DEM)
 	./$(EXEC) -p 8082 $(DEM)
 
+deb:
+	rm -rf debian/
+	mkdir -p debian/
+	cat deb/changelog.in \
+		> debian/changelog
+	cat deb/compat.in \
+		> debian/compat
+	cat deb/control.in \
+		> debian/control
+	cat deb/copyright.in \
+		> debian/copyright
+	cat deb/moidemd.postinst.in \
+		> debian/moidemd.postinst
+	cat deb/moidemd.service.in | sed \
+		-e 's#%%DEM%%#$(DEM)#g' \
+		> debian/moidemd.service
+	cat deb/rules.in | sed \
+		-e 's#%%VERSION%%#$(VERSION)#g' \
+		-e 's#%%DEM%%#$(DEM)#g' \
+		> debian/rules
+	chmod +x debian/rules
+	debuild -b -us -uc
+
 docker:
 	docker build --network=host --force-rm \
 		$(if $(call eq,$(no-cache),yes),--no-cache --pull,) \
@@ -63,4 +86,4 @@ push:
 clean:
 	@rm -f $(MOIDEMD)
 
-.PHONY: all clean run docker tags push post-push-hook
+.PHONY: all clean run deb docker tags push post-push-hook
