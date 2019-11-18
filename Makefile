@@ -27,11 +27,12 @@ $(EXEC): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<
 
 $(DEM): $(DEMZIP)
+	@7za || sudo apt install p7zip-full
 	7za x $< $(DEM)
 	touch $(DEM)
 
 $(DEMZIP):
-	wget --no-check-certificate -O $(DEMZIP) http://dtm.moi.gov.tw/tif/$(DEMZIP) 
+	wget --no-check-certificate -O $(DEMZIP) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
 
 run: $(EXEC) $(DEM)
 	./$(EXEC) -p 8082 $(DEM)
