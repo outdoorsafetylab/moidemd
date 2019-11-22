@@ -2,7 +2,7 @@ EXEC := moidemd
 CC := g++
 LDFLAGS ?=
 LIBS ?= -lgdal -levent -ljson-c
-SOURCES := main.cpp
+SOURCES := $(wildcard *.cpp)
 # Objs are all the sources, with .cpp replaced by .o
 OBJS := $(SOURCES:.cpp=.o)
 
@@ -21,10 +21,10 @@ eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(CC) $(CFLAGS) -o $(EXEC) $< $(LDFLAGS) $(LIBS)
+	$(CC) $(strip $(CFLAGS) )$^ -o $@ $(strip $(LDFLAGS) $(LIBS))
 
-.cpp.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<
+%.o: %.cpp
+	$(CC) $(strip $(CFLAGS) $(INCLUDES) )-c $< -o $@
 
 $(DEM): $(DEMZIP)
 	@7za || sudo apt install p7zip-full
@@ -34,10 +34,10 @@ $(DEM): $(DEMZIP)
 $(DEMZIP):
 	wget --no-check-certificate -O $(DEMZIP) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
 
-run: $(EXEC) $(DEM)
+run: $(EXEC) #$(DEM)
 	./$(EXEC) -p 8082 $(DEM)
 
-deb:
+deb: $(EXEC) $(DEM)
 	rm -rf debian/
 	mkdir -p debian/
 	cat deb/changelog.in \
@@ -84,6 +84,6 @@ push:
 	docker push $(REPO_NAME):$(VERSION)
 
 clean:
-	@rm -f $(MOIDEMD)
+	@rm -f $(MOIDEMD) $(OBJS)
 
 .PHONY: all clean run deb docker tags push post-push-hook
