@@ -1,106 +1,56 @@
-#ifdef ALPINE
-#include <gdal.h>
-#include <cpl_string.h>
-#include <ogr_spatialref.h>
-#else
-#include <gdal/gdal.h>
-#include <gdal/cpl_string.h>
-#include <gdal/ogr_spatialref.h>
-#endif
+#include <sys/queue.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <math.h>
 
-#include "context.h"
+#include "dataset.h"
 
-static char *sanitizeSRS(const char *);
-static int contextGetBounds(context *ctx);
-static int contextGetCorner(context *, double *, double *);
+static int endsWith(const char *str, const char *suffix);
+static void joinPath(char *dst, size_t n, const char *dir, const char *file);
+static int isDir(const char *path);
+static int exist(const char *path);
+static void contextAddDataset(struct context *ctx, const char *filepath, const char *srs);
 
-struct context {
-    GDALDatasetH hSrcDS;
-    GDALRasterBandH hBand;
-    double NoDataValue;
-    OGRSpatialReferenceH hSrcSRS;
-    OGRSpatialReferenceH hTrgSRS;
-    char *SanitizedSRS;
-    OGRCoordinateTransformationH hCT;
-    OGRCoordinateTransformationH hInvCT;
-    double adfGeoTransform[6];
-    double adfInvGeoTransform[6];
-    double top;
-    double left;
-    double bottom;
-    double right;
+struct dataset_item {
+    struct dataset *dataset;
+    LIST_ENTRY(dataset_item) entry;
 };
 
-context *ContextCreate(const char *filename, const char *srs) {
-    context *ctx = (context *) calloc(sizeof(context), 1);
-    ctx->hSrcDS = GDALOpen(filename, GA_ReadOnly);
-    if (!ctx->hSrcDS) {
-        fprintf(stderr, "Failed to open '%s': %s\n", filename, strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    int count = GDALGetRasterCount(ctx->hSrcDS);
-    if (count != 1) {
-        fprintf(stderr, "Unexpected number of band '%s': %d\n", filename, count);
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->hBand = GDALGetRasterBand(ctx->hSrcDS, 1);
-    if (!ctx->hBand) {
-        fprintf(stderr, "Failed to get raster band '%s': %s\n", filename, strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    if (GDALDataTypeIsComplex(GDALGetRasterDataType(ctx->hBand))) {
-        fprintf(stderr, "Unexpected data type '%s'\n", filename);
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->NoDataValue = GDALGetRasterNoDataValue(ctx->hBand, NULL);
-    if (GDALGetGeoTransform(ctx->hSrcDS, ctx->adfGeoTransform) != CE_None) {
-        fprintf(stderr, "Failed to get geotransform %s: %s\n", filename, strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    if (!GDALInvGeoTransform(ctx->adfGeoTransform, ctx->adfInvGeoTransform)) {
-        fprintf(stderr, "Failed to invert geotransform %s: %s\n", filename, strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->SanitizedSRS = sanitizeSRS(srs);
-    if (!ctx->SanitizedSRS) {
-        fprintf(stderr, "Failed to sanitize SRS '%s': %s\n", srs, strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->hSrcSRS = OSRNewSpatialReference(ctx->SanitizedSRS);
-    if (!ctx->hSrcSRS) {
-        fprintf(stderr, "Failed to create source SRS: %s\n", strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->hTrgSRS = OSRNewSpatialReference(GDALGetProjectionRef(ctx->hSrcDS));
-    if (!ctx->hSrcSRS) {
-        fprintf(stderr, "Failed to create target SRS: %s\n", strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->hCT = OCTNewCoordinateTransformation(ctx->hSrcSRS, ctx->hTrgSRS);
-    if (!ctx->hCT) {
-        fprintf(stderr, "Failed to create coordinate transform: %s\n", strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    ctx->hInvCT = OCTNewCoordinateTransformation(ctx->hTrgSRS, ctx->hSrcSRS);
-    if (!ctx->hInvCT) {
-        fprintf(stderr, "Failed to inverse coordinate transform: %s\n", strerror(errno));
-        ContextFree(ctx);
-        return NULL;
-    }
-    if (!contextGetBounds(ctx)) {
-        fprintf(stderr, "Failed to get bounds: %s\n", strerror(errno));
-        ContextFree(ctx);
-        return NULL;
+LIST_HEAD(dataset_list, dataset_item);
+
+struct context {
+    struct dataset_list datasets;
+    size_t num_datasets;
+};
+
+context *ContextCreate(const char *path, const char *srs) {
+    struct context *ctx = (context *) calloc(sizeof(struct context), 1);
+    LIST_INIT(&ctx->datasets);
+    DIR *d;
+    struct dirent *ent;
+    char filepath[1024];
+    if (exist(path)) {
+        if (isDir(path)) {
+            d = opendir(path);
+            if (d) {
+                while ((ent = readdir(d)) != NULL) {
+                    if (endsWith(ent->d_name, ".tif") || endsWith(ent->d_name, ".hgt")) {
+                        joinPath(filepath, sizeof(filepath), path, ent->d_name);
+                        contextAddDataset(ctx, filepath, srs);
+                    }
+                }
+                closedir(d);
+            }
+        } else {
+            contextAddDataset(ctx, path, srs);
+        }
+    } else {
+        printf("%s: %s\n", strerror(ENOENT), path);
     }
     return ctx;
 }
@@ -109,116 +59,73 @@ void ContextFree(context *ctx) {
     if (!ctx) {
         return;
     }
-    if (ctx->hCT) {
-        OCTDestroyCoordinateTransformation(ctx->hCT);
-    }
-    if (ctx->hInvCT) {
-        OCTDestroyCoordinateTransformation(ctx->hInvCT);
-    }
-    if (ctx->SanitizedSRS) {
-        free(ctx->SanitizedSRS);
-    }
-    if (ctx->hTrgSRS) {
-        OSRDestroySpatialReference(ctx->hTrgSRS);
-    }
-    if (ctx->hSrcSRS) {
-        OSRDestroySpatialReference(ctx->hSrcSRS);
-    }
-    if (ctx->hSrcDS) {
-        GDALClose(ctx->hSrcDS);
+    struct dataset_item *item;
+    LIST_FOREACH(item, &ctx->datasets, entry) {
+        if (item->dataset) {
+            DatasetFree(item->dataset);
+        }
+        free(item);
     }
     free(ctx);
 }
 
-double ContextGetAltitude(context *ctx, double dfGeoX, double dfGeoY) {
-    if (!OCTTransform(ctx->hCT, 1, &dfGeoX, &dfGeoY, NULL)) {
-        return NAN;
+void contextAddDataset(struct context *ctx, const char *filepath, const char *srs) {
+    struct dataset *dataset = DatasetCreate(filepath, srs);
+    if (dataset) {
+        double top, left, bottom, right;
+        DatasetGetBounds(dataset, &top, &left, &bottom, &right);
+        printf("Dataset loaded: %s => (%f,%f,%f,%f)\n", filepath, top, left, bottom, right);
+        struct dataset_item *item = (struct dataset_item *) calloc(sizeof(struct dataset_item), 1);
+        item->dataset = dataset;
+        LIST_INSERT_HEAD(&ctx->datasets, item, entry);
+        ctx->num_datasets++;
+    } else {
+        printf("Failed to load dataset: %s => %s\n", filepath, strerror(errno));
+        return;
     }
-    int iPixel, iLine;
-    iPixel = (int) floor(
-        ctx->adfInvGeoTransform[0] 
-        + ctx->adfInvGeoTransform[1] * dfGeoX
-        + ctx->adfInvGeoTransform[2] * dfGeoY);
-    iLine = (int) floor(
-        ctx->adfInvGeoTransform[3] 
-        + ctx->adfInvGeoTransform[4] * dfGeoX
-        + ctx->adfInvGeoTransform[5] * dfGeoY);
-    if (iPixel < 0 || iLine < 0 
-            || iPixel >= GDALGetRasterXSize(ctx->hSrcDS)
-            || iLine  >= GDALGetRasterYSize(ctx->hSrcDS)) {
-        errno = ERANGE;
-        return NAN;
-    }
-    double adfPixel[2];    
-    if (GDALRasterIO(ctx->hBand, GF_Read, iPixel, iLine, 1, 1, 
-                        adfPixel, 1, 1, GDT_CFloat64, 0, 0) == CE_None) {
-        if (adfPixel[0] == ctx->NoDataValue) {
-            return NAN;
-        } else {
-            return adfPixel[0];
+}
+
+int ContextEmpty(context *ctx) {
+    return LIST_EMPTY(&ctx->datasets);
+}
+
+double ContextGetAltitude(context *ctx, double x, double y) {
+    struct dataset_item *item;
+    double alt;
+    LIST_FOREACH(item, &ctx->datasets, entry) {
+        alt = DatasetGetAltitude(item->dataset, x, y);
+        if (!isnan(alt)) {
+            return alt;
         }
     }
     return NAN;
 }
 
-void ContextGetBounds(context *ctx, double *t, double *l, double *b, double *r) {
-    *t = ctx->top;
-    *l = ctx->left;
-    *b = ctx->bottom;
-    *r = ctx->right;
+int endsWith(const char *str, const char *suffix) {
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
 }
 
-int contextGetBounds(context *ctx) {
-    double upperLeftX = 0, upperLeftY = 0;
-    if (!contextGetCorner(ctx, &upperLeftX, &upperLeftY)) {
-        return FALSE;
-    }
-    // printf("upper left: %f,%f\n", upperLeftX, upperLeftY);
-    double lowerLeftX = 0, lowerLeftY = GDALGetRasterYSize(ctx->hSrcDS);
-    if (!contextGetCorner(ctx, &lowerLeftX, &lowerLeftY)) {
-        return FALSE;
-    }
-    // printf("lower left: %f,%f\n", lowerLeftX, lowerLeftY);
-    double upperRightX = GDALGetRasterXSize(ctx->hSrcDS), upperRightY = 0;
-    if (!contextGetCorner(ctx, &upperRightX, &upperRightY)) {
-        return FALSE;
-    }
-    // printf("upper right: %f,%f\n", upperRightX, upperRightY);
-    double lowerRightX = GDALGetRasterXSize(ctx->hSrcDS), lowerRightY = GDALGetRasterYSize(ctx->hSrcDS);
-    if (!contextGetCorner(ctx, &lowerRightX, &lowerRightY)) {
-        return FALSE;
-    }
-    // printf("lower right: %f,%f\n", lowerRightX, lowerRightY);
-    ctx->top = upperRightY > upperLeftY ? upperRightY : upperLeftY;
-    ctx->bottom = lowerRightY < lowerLeftY ? lowerRightY : lowerLeftY;
-    ctx->left = upperLeftX < lowerLeftX ? upperLeftX : lowerLeftX;
-    ctx->right = upperRightX > lowerRightX ? upperRightX : lowerRightX;
-    // printf("left=%f, top=%f, right=%f, bottom=%f\n", ctx->left, ctx->top, ctx->right, ctx->bottom);
-    return TRUE;
-}
-
-int contextGetCorner(context *ctx, double *x, double *y) {
-    *x = ctx->adfGeoTransform[0] + ctx->adfGeoTransform[1] * (*x)
-        + ctx->adfGeoTransform[2] * (*y);
-    *y = ctx->adfGeoTransform[3] + ctx->adfGeoTransform[4] * (*x)
-        + ctx->adfGeoTransform[5] * (*y);
-    double z = 0;
-    return OCTTransform(ctx->hInvCT, 1, x, y, &z);
-}
-
-char *sanitizeSRS(const char *pszUserInput) {
-    OGRSpatialReferenceH hSRS;
-    char *pszResult = NULL;
-
-    CPLErrorReset();
-    
-    hSRS = OSRNewSpatialReference( NULL );
-    if (OSRSetFromUserInput(hSRS, pszUserInput) == OGRERR_NONE) {
-        OSRExportToWkt(hSRS, &pszResult);
+void joinPath(char *dst, size_t n, const char *dir, const char *file) {
+    if (endsWith(dir, "/")) {
+        snprintf(dst, n, "%s%s", dir, file);
     } else {
-        return NULL;
+        snprintf(dst, n, "%s/%s", dir, file);
     }
-    
-    OSRDestroySpatialReference(hSRS);
-    return pszResult;
+}
+
+int exist(const char *path) {
+    struct stat st;
+    return stat(path, &st) == 0;
+}
+
+int isDir(const char *path) {
+    struct stat st;
+    stat(path, &st);
+    return S_ISDIR(st.st_mode);
 }

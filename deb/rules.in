@@ -10,7 +10,7 @@ override_dh_auto_install:
 	mkdir -p $(SBINDIR)
 	install -m 0755 moidemd $(SBINDIR)
 	mkdir -p $(DEMDIR)
-	install -m 0644 %%DEM%% $(DEMDIR)
+	install -m 0644 %%DEMS%% $(DEMDIR)
 	dh_systemd_enable || true
 	dh_systemd_start || true
 

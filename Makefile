@@ -6,8 +6,13 @@ SOURCES := $(wildcard *.cpp)
 # Objs are all the sources, with .cpp replaced by .o
 OBJS := $(SOURCES:.cpp=.o)
 
-DEMZIP := dem.7z
-DEM := DEMg_geoid2014_20m_20190515.tif
+DEM_TW_7Z := dem_tw.7z
+DEM_TW := DEMg_geoid2014_20m_20190515.tif
+DEM_KM_7Z := dem_km.7z
+DEM_KM := DEMg_20m_KM_20190521.tif
+DEM_PH_7Z := dem_ph.7z
+DEM_PH := DEMg_20m_PH_20190521.tif
+DEMS := $(DEM_TW) $(DEM_KM) $(DEM_PH)
 
 IMAGE_NAME := outdoorsafetylab/moidemd
 REPO_NAME := $(IMAGE_NAME)
@@ -26,18 +31,36 @@ $(EXEC): $(OBJS)
 %.o: %.cpp
 	$(CC) $(strip $(CFLAGS) $(INCLUDES) )-c $< -o $@
 
-$(DEM): $(DEMZIP)
+$(DEM_TW_7Z):
+	wget --no-check-certificate -O $@ "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
+
+$(DEM_TW): $(DEM_TW_7Z)
+	$(call un7z.do,$<,$@)
+
+$(DEM_KM_7Z):
+	wget --no-check-certificate -O $@ "http://dtm.moi.gov.tw/tif/金門.7z"
+
+$(DEM_KM): $(DEM_KM_7Z)
+	$(call un7z.do,$<,$@)
+
+$(DEM_PH_7Z):
+	wget --no-check-certificate -O $@ "http://dtm.moi.gov.tw/tif/澎湖.7z"
+
+$(DEM_PH): $(DEM_PH_7Z)
+	$(call un7z.do,$<,$@)
+
+define un7z.do
+	$(eval archive := $(strip $(1)))
+	$(eval file := $(strip $(2)))
 	@7za || sudo apt install p7zip-full
-	7za x $< $(DEM)
-	touch $(DEM)
+	7za x $(archive) $(file)
+	touch $(file)
+endef
 
-$(DEMZIP):
-	wget --no-check-certificate -O $(DEMZIP) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
+run: $(EXEC) $(DEMS)
+	./$(EXEC) -p 8082 .
 
-run: $(EXEC) #$(DEM)
-	./$(EXEC) -p 8082 $(DEM)
-
-deb: $(EXEC) $(DEM)
+deb: $(EXEC) $(DEMS)
 	rm -rf debian/
 	mkdir -p debian/
 	cat deb/changelog.in \
@@ -50,12 +73,11 @@ deb: $(EXEC) $(DEM)
 		> debian/copyright
 	cat deb/moidemd.postinst.in \
 		> debian/moidemd.postinst
-	cat deb/moidemd.service.in | sed \
-		-e 's#%%DEM%%#$(DEM)#g' \
+	cat deb/moidemd.service.in \
 		> debian/moidemd.service
 	cat deb/rules.in | sed \
 		-e 's#%%VERSION%%#$(VERSION)#g' \
-		-e 's#%%DEM%%#$(DEM)#g' \
+		-e 's#%%DEMS%%#$(DEMS)#g' \
 		> debian/rules
 	chmod +x debian/rules
 	debuild -b -us -uc

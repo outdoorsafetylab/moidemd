@@ -1,10 +1,10 @@
-#ifndef CONTEXT_H
-#define CONTEXT_H
+#ifndef CONTEXT_H_
+#define CONTEXT_H_
 
 struct context;
-context *ContextCreate(const char *, const char *);
-void ContextFree(context *);
-void ContextGetBounds(context *, double *t, double *l, double *b, double *r);
-double ContextGetAltitude(context *, double, double);
+struct context *ContextCreate(const char *, const char *);
+void ContextFree(struct context *);
+int ContextEmpty(context *ctx);
+double ContextGetAltitude(struct context *, double, double);
 
-#endif // CONTEXT_H
+#endif // CONTEXT_H_

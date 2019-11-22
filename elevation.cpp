@@ -117,7 +117,7 @@ void elevation_request_cb(struct evhttp_request *req, void *arg) {
             usec += 1000000;
             sec--;
         }
-        fprintf(stderr, "Converted %d point(s) in %ld.%06ld sec\n", n, sec, usec);
+        fprintf(stderr, "Lookup %d point(s) in %ld.%06ld sec\n", n, sec, usec);
     }
     evhttp_add_header(evhttp_request_get_output_headers(req), "Content-Type", contentType);
     evhttp_send_reply(req, 200, "OK", output);

@@ -9,7 +9,7 @@ Restart=always
 RestartSec=30
 StartLimitInterval=0
 User=moidemd
-ExecStart=/usr/sbin/moidemd /var/lib/moidemd/%%DEM%%
+ExecStart=/usr/sbin/moidemd /var/lib/moidemd/
 
 [Install]
 WantedBy=multi-user.target

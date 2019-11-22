@@ -15,8 +15,8 @@
 #include <json-c/json.h>
 #include <math.h>
 
-#include "context.h"
 #include "elevation.h"
+#include "context.h"
 
 static void do_term(int sig, short events, void *arg) {
 	struct event_base *base = (struct event_base *) arg;
@@ -30,7 +30,7 @@ static const char *defaultSRS = "WGS84";
 static const char *defaultURI = "/v1/elevations";
 
 int main(int argc, char **argv) {
-    context *ctx = NULL;
+    struct context *ctx = NULL;
     struct event_base *base = NULL;
     struct evhttp *http = NULL;
     struct evhttp_bound_socket *handle = NULL;
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 	}
 
     if (optind >= argc || (argc-optind) > 1) {
-		fprintf(stdout, "Usage: %s [options] <DEM file>\n", argv[0]);
+		fprintf(stdout, "Usage: %s [options] <DEM file or directory of DEM files>\n", argv[0]);
 		fprintf(stdout, "Options:\n");
 		fprintf(stdout, "    -a <addr> : Address to bind HTTP (default: %s)\n", defaultAddress);
 		fprintf(stdout, "    -p <port> : Port to bind HTTP (default: %d)\n", defaultPort);
@@ -60,13 +60,18 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-    const char *filename = argv[optind];
+    const char *path = argv[optind];
     GDALAllRegister();
-    ctx = ContextCreate(filename, srs);
+    ctx = ContextCreate(path, srs);
     if (!ctx) {
 		ret = 1;
 		goto err;
     }
+
+	if (ContextEmpty(ctx)) {
+		ret = 1;
+		goto err;
+	}
 
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		fprintf(stderr, "Failed to ignore SIGPIPE: %s\n", strerror(errno));
@@ -110,7 +115,7 @@ int main(int argc, char **argv) {
 		goto err;
     }
 
-    fprintf(stderr, "Serving %s: http://%s:%d%s\n", filename, addr, port, uri);
+    fprintf(stderr, "Serving http://%s:%d%s\n", addr, port, uri);
 	ret = event_base_dispatch(base);
 
 err:
