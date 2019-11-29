@@ -1,8 +1,4 @@
-.vscode
-*.o
 *.tif
-*.tfw
-*.zip
 *.7z
-moidemd
-debian
+source/
+build/

@@ -1,73 +1,115 @@
-EXEC := moidemd
-CC := g++
-LDFLAGS ?=
-LIBS ?= -lgdal -levent -ljson-c
-SOURCES := main.cpp
-# Objs are all the sources, with .cpp replaced by .o
-OBJS := $(SOURCES:.cpp=.o)
-
-DEMZIP := dem.7z
-DEM := DEMg_geoid2014_20m_20190515.tif
-
+VERSION := 1.1.0
+TAGS ?= 1.1.0-ubuntu-18.04,latest
 IMAGE_NAME := outdoorsafetylab/moidemd
-REPO_NAME := $(IMAGE_NAME)
-VERSION ?= 1.0.0-dem-20190515
-TAGS ?= 1.0.0-dem-20190515,latest
 
 comma := ,
-eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
-                                $(findstring $(2),$(1))),1)
 
-all: $(EXEC)
+GITURL := https://github.com/outdoorsafetylab/demd.git
+BRANCH := v$(VERSION)
+SOURCE := ./source
+DEBIAN := $(SOURCE)/debian
+BUILD := ./build
 
-$(EXEC): $(OBJS)
-	$(CC) $(CFLAGS) -o $(EXEC) $< $(LDFLAGS) $(LIBS)
+DEM := ./dem
+DEM_TW := DEMg_geoid2014_20m_20190515.tif
+DEM_KM := DEMg_20m_KM_20190521.tif
+DEM_PH := DEMg_20m_PH_20190521.tif
+DEMS := $(DEM_TW) $(DEM_KM) $(DEM_PH)
+DEMFILES := $(addprefix $(DEM)/,$(DEMS))
+TEMP7Z := /tmp/dem.7z
 
-.cpp.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<
+WGET := wget --no-check-certificate
 
-$(DEM): $(DEMZIP)
-	@7za || sudo apt install p7zip-full
-	7za x $< $(DEM)
-	touch $(DEM)
+$(DEM)/$(DEM_TW):
+	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
+	$(call un7z.do,$@)
 
-$(DEMZIP):
-	wget --no-check-certificate -O $(DEMZIP) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
+$(DEM)/$(DEM_KM):
+	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/金門.7z"
+	$(call un7z.do,$@)
 
-run: $(EXEC) $(DEM)
-	./$(EXEC) -p 8082 $(DEM)
+$(DEM)/$(DEM_PH):
+	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/澎湖.7z"
+	$(call un7z.do,$@)
 
-deb:
-	rm -rf debian/
-	mkdir -p debian/
+define un7z.do
+	$(eval file := $(strip $(1)))
+	@which 7za || sudo apt install p7zip-full
+	7za x $(TEMP7Z) $(file)
+	touch $(file)
+	rm -f $(TEMP7Z)
+endef
+
+all: deb docker tags
+
+clean:
+	rm -rf $(BUILD)
+	rm -rf $(SOURCE)
+
+$(SOURCE):
+	rm -rf $(SOURCE)
+	git clone $(GITURL) $(SOURCE)
+	cd $(SOURCE) && git checkout $(BRANCH)
+	rm -rf $(DEBIAN)/
+	mkdir -p $(DEBIAN)/
 	cat deb/changelog.in \
-		> debian/changelog
+		> $(DEBIAN)/changelog
 	cat deb/compat.in \
-		> debian/compat
+		> $(DEBIAN)/compat
 	cat deb/control.in \
-		> debian/control
+		> $(DEBIAN)/control
 	cat deb/copyright.in \
-		> debian/copyright
+		> $(DEBIAN)/copyright
 	cat deb/moidemd.postinst.in \
-		> debian/moidemd.postinst
-	cat deb/moidemd.service.in | sed \
-		-e 's#%%DEM%%#$(DEM)#g' \
-		> debian/moidemd.service
+		> $(DEBIAN)/moidemd.postinst
+	cat deb/moidemd.service.in \
+		> $(DEBIAN)/moidemd.service
 	cat deb/rules.in | sed \
 		-e 's#%%VERSION%%#$(VERSION)#g' \
-		-e 's#%%DEM%%#$(DEM)#g' \
-		> debian/rules
-	chmod +x debian/rules
-	debuild -b -us -uc
+		-e 's#%%DEMS%%#$(addprefix /dem/,$(DEMS))#g' \
+		> $(DEBIAN)/rules
+	chmod +x $(DEBIAN)/rules
+
+deb: $(SOURCE)
+	$(call docker.debuild.do,$@/ubuntu/18.04,$(IMAGE_NAME)-debuild-ubuntu:18.04)
+
+define docker.debuild.do
+	$(eval dir := $(strip $(1)))
+	$(eval image_name := $(strip $(2)))
+	docker build \
+	 	--network=host --force-rm \
+		-t $(image_name) \
+		-f $(dir)/Dockerfile \
+		$(dir)
+	mkdir -p $(BUILD)
+	docker run -it \
+		-v $(abspath $(SOURCE)):/source:ro \
+		-v $(abspath $(DEM)):/dem:ro \
+		-v $(abspath $(BUILD)):/output \
+		-v $(abspath $(dir))/build.sh:/build.sh:ro \
+		-e USER=$(shell id -u) \
+		-e GROUP=$(shell id -g) \
+		$(image_name) \
+		/build.sh
+endef
 
 docker:
-	docker build --network=host --force-rm \
-		$(if $(call eq,$(no-cache),yes),--no-cache --pull,) \
-		-t $(IMAGE_NAME):$(VERSION) .
+	$(call docker.build.do,$@/ubuntu/18.04,$(VERSION))
+
+define docker.build.do
+	$(eval dir := $(strip $(1)))
+	$(eval tag := $(strip $(2)))
+	docker build \
+	 	--network=host --force-rm \
+		-t $(IMAGE_NAME):$(tag) \
+		-f $(dir)/Dockerfile \
+		$(dir)
+endef
 
 tags:	
-	$(foreach tag, $(subst $(comma), ,$(TAGS)),$(call docker.tags.do,$(VERSION),$(tag)))
-define docker.tags.do
+	$(foreach tag, $(subst $(comma), ,$(TAGS)),$(call docker.tag.do,$(VERSION)-ubuntu-18.04,$(tag)))
+
+define docker.tag.do
 	$(eval from := $(strip $(1)))
 	$(eval to := $(strip $(2)))
 	docker tag $(IMAGE_NAME):$(from) $(IMAGE_NAME):$(to)
@@ -83,7 +125,4 @@ post-push-hook:
 push:
 	docker push $(REPO_NAME):$(VERSION)
 
-clean:
-	@rm -f $(MOIDEMD)
-
-.PHONY: all clean run deb docker tags push post-push-hook
+.PHONY: all clean $(SOURCE) deb docker tags

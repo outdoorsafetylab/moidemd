@@ -8,9 +8,9 @@ override_dh_auto_install: SBINDIR=$(CURDIR)/debian/moidemd/usr/sbin
 override_dh_auto_install: DEMDIR=$(CURDIR)/debian/moidemd/var/lib/moidemd
 override_dh_auto_install:
 	mkdir -p $(SBINDIR)
-	install -m 0755 moidemd $(SBINDIR)
+	install -m 0755 --strip demd $(SBINDIR)
 	mkdir -p $(DEMDIR)
-	install -m 0644 %%DEM%% $(DEMDIR)
+	install -m 0644 %%DEMS%% $(DEMDIR)
 	dh_systemd_enable || true
 	dh_systemd_start || true
 
