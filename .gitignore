@@ -1,4 +1,5 @@
 *.tif
 *.7z
+*.zip
 source/
 build/

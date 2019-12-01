@@ -1,10 +1,10 @@
 steps:
-# This step builds the container image.
+# This step fetchs MOI DEM archive.
 - name: 'gcr.io/cloud-builders/gsutil'
-  id: Prepare
+  id: Fetch
   args:
   - 'cp'
-  - 'gs://moidemd/DEMg_geoid2014_20m_20190515.tif'
+  - 'gs://moidem/moidem.zip'
   - '.'
 
   # This step builds the container image.
@@ -13,7 +13,7 @@ steps:
   args:
   - 'build'
   - '-t'
-  - 'gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
+  - 'asia.gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
   - '.'
 
 # This step pushes the image to Container Registry
@@ -23,4 +23,4 @@ steps:
   id: Push
   args:
   - 'push'
-  - 'gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
+  - 'asia.gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
