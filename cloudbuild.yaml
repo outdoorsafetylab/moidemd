@@ -14,7 +14,7 @@ steps:
   - 'build'
   - '-t'
   - 'asia.gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
-  - 'cloudrun'
+  - '.'
 
 # This step pushes the image to Container Registry
 # The PROJECT_ID and TAG_NAME variables are automatically
