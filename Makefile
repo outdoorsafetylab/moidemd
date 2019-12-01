@@ -1,6 +1,7 @@
 VERSION := 1.1.0
 TAGS ?= 1.1.0-ubuntu-18.04,latest
 IMAGE_NAME := outdoorsafetylab/moidemd
+GPROJ := outdoorsafetylab
 
 comma := ,
 
@@ -124,5 +125,8 @@ post-push-hook:
 
 push:
 	docker push $(REPO_NAME):$(VERSION)
+
+cloudbuild:
+	gcloud builds submit --project $(GPROJ) --config ./cloudrun/cloudbuild.yaml --substitutions=TAG_NAME="v$(VERSION)"
 
 .PHONY: all clean $(SOURCE) deb docker tags
