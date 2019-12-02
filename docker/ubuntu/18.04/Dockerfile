@@ -1,5 +1,7 @@
 FROM ubuntu:18.04 AS builder
 
+ARG BRANCH
+
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends \
         build-essential libgdal-dev libevent-dev libjson-c-dev
@@ -8,7 +10,7 @@ RUN apt-get install -y --no-install-recommends \
 
 RUN git clone https://github.com/outdoorsafetylab/demd.git /source
 WORKDIR /source
-RUN make
+RUN git checkout ${BRANCH} && make
 RUN mkdir -p /dem
 WORKDIR /dem
 RUN wget --no-check-certificate -O dem.7z "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z" && 7za x dem.7z

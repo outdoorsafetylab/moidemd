@@ -12,6 +12,8 @@ steps:
   id: Build
   args:
   - 'build'
+  - '--build-arg'
+  - 'BRANCH=$TAG_NAME'
   - '-t'
   - 'asia.gcr.io/$PROJECT_ID/moidemd:$TAG_NAME'
   - '.'

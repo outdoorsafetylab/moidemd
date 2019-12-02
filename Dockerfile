@@ -1,5 +1,7 @@
 FROM ubuntu:18.04 AS builder
 
+ARG BRANCH
+
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends \
         build-essential libgdal-dev libevent-dev libjson-c-dev
@@ -8,7 +10,7 @@ RUN apt-get install -y --no-install-recommends \
 
 RUN git clone https://github.com/outdoorsafetylab/demd.git /source
 WORKDIR /source
-RUN make
+RUN git checkout ${BRANCH} && make
 RUN mkdir -p /dem
 COPY moidem.zip /dem
 WORKDIR /dem
