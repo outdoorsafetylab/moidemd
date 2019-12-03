@@ -1,5 +1,5 @@
-VERSION := 1.1.0
-TAGS ?= 1.1.0-ubuntu-18.04,latest
+VERSION := 1.2.0
+TAGS ?= 1.2.0-ubuntu-18.04,latest
 IMAGE_NAME := outdoorsafetylab/moidemd
 GPROJ ?= outdoorsafetylab
 
@@ -130,4 +130,4 @@ push:
 cloudrun:
 	gcloud builds submit --project $(GPROJ) --substitutions=TAG_NAME="v$(VERSION)"
 
-.PHONY: all clean $(SOURCE) deb docker tags
+.PHONY: all clean $(SOURCE) deb docker tags post-push-hook push cloudrun

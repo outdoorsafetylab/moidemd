@@ -27,4 +27,4 @@ COPY --from=builder /source/demd /usr/sbin/
 RUN mkdir -p /var/lib/moidemd/
 COPY --from=builder /dem/*.tif /var/lib/moidemd/
 
-CMD ["sh", "-c", "/usr/sbin/demd -p $PORT /var/lib/moidemd/"]
+CMD ["sh", "-c", "/usr/sbin/demd -p $PORT -A \"$AUTH\" /var/lib/moidemd/"]
