@@ -15,7 +15,7 @@ DEM := ./dem
 DEM_TW := DEMg_geoid2014_20m_20190515.tif
 DEM_KM := DEMg_20m_KM_20190521.tif
 DEM_PH := DEMg_20m_PH_20190521.tif
-DEMS := $(DEM_TW) $(DEM_KM) $(DEM_PH)
+DEMS := $(DEM_KM) $(DEM_PH) $(DEM_TW)
 DEMFILES := $(addprefix $(DEM)/,$(DEMS))
 TEMP7Z := /tmp/dem.7z
 
@@ -23,21 +23,23 @@ WGET := wget --no-check-certificate
 
 $(DEM)/$(DEM_TW):
 	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
-	$(call un7z.do,$@)
+	$(call un7z.do,$(DEM_TW),$(DEM))
 
 $(DEM)/$(DEM_KM):
 	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/金門.7z"
-	$(call un7z.do,$@)
+	$(call un7z.do,$(DEM_KM),$(DEM))
 
 $(DEM)/$(DEM_PH):
 	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/澎湖.7z"
-	$(call un7z.do,$@)
+	$(call un7z.do,$(DEM_PH),$(DEM))
 
 define un7z.do
 	$(eval file := $(strip $(1)))
+	$(eval dir := $(strip $(2)))
 	@which 7za || sudo apt install p7zip-full
 	7za x $(TEMP7Z) $(file)
 	touch $(file)
+	mv $(file) $(dir)
 	rm -f $(TEMP7Z)
 endef
 
@@ -71,7 +73,7 @@ $(SOURCE):
 		> $(DEBIAN)/rules
 	chmod +x $(DEBIAN)/rules
 
-deb: $(SOURCE)
+deb: $(SOURCE) $(DEMFILES)
 	$(call docker.debuild.do,$@/ubuntu/18.04,$(IMAGE_NAME)-debuild-ubuntu:18.04)
 
 define docker.debuild.do
