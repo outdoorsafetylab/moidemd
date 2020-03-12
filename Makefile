@@ -1,135 +1,54 @@
-VERSION := 1.2.0
-TAGS ?= 1.2.0-ubuntu-18.04,latest
+
 IMAGE_NAME := outdoorsafetylab/moidemd
-GPROJ ?= outdoorsafetylab
+REPO_NAME ?= outdoorsafetylab/moidemd
+VERSION ?= $(subst v,,$(shell git describe --tags --exact-match 2>/dev/null || echo ""))
+PORT ?= 8082
 
-comma := ,
+# Build docker image.
+#
+# Usage:
+#	make docker/build [no-cache=(no|yes)]
 
-GITURL := https://github.com/outdoorsafetylab/demd.git
-BRANCH := v$(VERSION)
-SOURCE := ./source
-DEBIAN := $(SOURCE)/debian
-BUILD := ./build
+docker/build:
+	docker build --network=host --force-rm \
+		$(if $(call eq,$(no-cache),yes),--no-cache --pull,) \
+		-t $(IMAGE_NAME) .
 
-DEM := ./dem
-DEM_TW := DEMg_geoid2014_20m_20190515.tif
-DEM_KM := DEMg_20m_KM_20190521.tif
-DEM_PH := DEMg_20m_PH_20190521.tif
-DEMS := $(DEM_KM) $(DEM_PH) $(DEM_TW)
-DEMFILES := $(addprefix $(DEM)/,$(DEMS))
-TEMP7Z := /tmp/dem.7z
+# Run docker image.
+#
+# Usage:
+#	make docker/run
 
-WGET := wget --no-check-certificate
+docker/run:
+	docker run -it --rm \
+		-p $(PORT):$(PORT) \
+		$(IMAGE_NAME)
 
-$(DEM)/$(DEM_TW):
-	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/taiwan_TIF格式.7z"
-	$(call un7z.do,$(DEM_TW),$(DEM))
+# Tag docker images.
+#
+# Usage:
+#	make docker/tag [VERSION=<image-version>]
 
-$(DEM)/$(DEM_KM):
-	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/金門.7z"
-	$(call un7z.do,$(DEM_KM),$(DEM))
+docker/tag:
+	docker tag $(IMAGE_NAME) $(REPO_NAME):latest
+ifneq ($(VERSION),)
+	docker tag $(IMAGE_NAME) $(REPO_NAME):$(VERSION)
+endif
 
-$(DEM)/$(DEM_PH):
-	$(WGET) -O $(TEMP7Z) "http://dtm.moi.gov.tw/tif/澎湖.7z"
-	$(call un7z.do,$(DEM_PH),$(DEM))
+# Push docker images.
+#
+# Usage:
+#	make docker/push
 
-define un7z.do
-	$(eval file := $(strip $(1)))
-	$(eval dir := $(strip $(2)))
-	@which 7za || sudo apt install p7zip-full
-	7za x $(TEMP7Z) $(file)
-	touch $(file)
-	mv $(file) $(dir)
-	rm -f $(TEMP7Z)
-endef
-
-all: deb docker tags
-
-clean:
-	rm -rf $(BUILD)
-	rm -rf $(SOURCE)
-
-$(SOURCE):
-	rm -rf $(SOURCE)
-	git clone $(GITURL) $(SOURCE)
-	cd $(SOURCE) && git checkout $(BRANCH)
-	rm -rf $(DEBIAN)/
-	mkdir -p $(DEBIAN)/
-	cat deb/changelog.in \
-		> $(DEBIAN)/changelog
-	cat deb/compat.in \
-		> $(DEBIAN)/compat
-	cat deb/control.in \
-		> $(DEBIAN)/control
-	cat deb/copyright.in \
-		> $(DEBIAN)/copyright
-	cat deb/moidemd.postinst.in \
-		> $(DEBIAN)/moidemd.postinst
-	cat deb/moidemd.service.in \
-		> $(DEBIAN)/moidemd.service
-	cat deb/rules.in | sed \
-		-e 's#%%VERSION%%#$(VERSION)#g' \
-		-e 's#%%DEMS%%#$(addprefix /dem/,$(DEMS))#g' \
-		> $(DEBIAN)/rules
-	chmod +x $(DEBIAN)/rules
-
-deb: $(SOURCE) $(DEMFILES)
-	$(call docker.debuild.do,$@/ubuntu/18.04,$(IMAGE_NAME)-debuild-ubuntu:18.04)
-
-define docker.debuild.do
-	$(eval dir := $(strip $(1)))
-	$(eval image_name := $(strip $(2)))
-	docker build \
-	 	--network=host --force-rm \
-		-t $(image_name) \
-		-f $(dir)/Dockerfile \
-		$(dir)
-	mkdir -p $(BUILD)
-	docker run -it \
-		-v $(abspath $(SOURCE)):/source:ro \
-		-v $(abspath $(DEM)):/dem:ro \
-		-v $(abspath $(BUILD)):/output \
-		-v $(abspath $(dir))/build.sh:/build.sh:ro \
-		-e USER=$(shell id -u) \
-		-e GROUP=$(shell id -g) \
-		$(image_name) \
-		/build.sh
-endef
-
-docker:
-	$(call docker.build.do,$@/ubuntu/18.04,$(VERSION))
-
-define docker.build.do
-	$(eval dir := $(strip $(1)))
-	$(eval tag := $(strip $(2)))
-	docker build \
-	 	--network=host --force-rm \
-		--build-arg BRANCH=$(BRANCH) \
-		-t $(IMAGE_NAME):$(tag) \
-		-f $(dir)/Dockerfile \
-		$(dir)
-endef
-
-tags:	
-	$(foreach tag, $(subst $(comma), ,$(TAGS)),$(call docker.tag.do,$(VERSION)-ubuntu-18.04,$(tag)))
-
-define docker.tag.do
-	$(eval from := $(strip $(1)))
-	$(eval to := $(strip $(2)))
-	docker tag $(IMAGE_NAME):$(from) $(IMAGE_NAME):$(to)
-endef
-
-post-push-hook:
+docker/push:
+	docker push $(REPO_NAME):latest
+ifneq ($(VERSION),)
+	docker push $(REPO_NAME):$(VERSION)
 	@mkdir -p hooks/
 	docker run --rm -i -v "$(PWD)/post_push.tmpl.php":/post_push.php:ro \
 		php:alpine php -f /post_push.php -- \
-			--image_tags='$(TAGS)' \
+			--image_tags='$(VERSION)' \
 		> hooks/post_push
+endif
 
-push:
-	docker push $(REPO_NAME):$(VERSION)
-
-cloudrun:
-	gcloud builds submit --project $(GPROJ) --substitutions=TAG_NAME="v$(VERSION)"
-
-.PHONY: all clean $(SOURCE) deb docker tags post-push-hook push cloudrun
+.PHONY: docker/build docker/run docker/tag docker/push
