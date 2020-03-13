@@ -1,6 +1,10 @@
 # Elevation Service of DTM from Taiwan MOI
 
-This provides a REST API service for querying elevations defined in DTM released by Taiwan MOI.
+This provides a REST API service for querying elevations defined in DTM released by Taiwan MOI, which covers:
+
+1. Taiwan
+1. Penghu
+1. Kinmen
 
 # How to use this image
 
