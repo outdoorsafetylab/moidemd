@@ -1,4 +1,4 @@
-# Elevation Service of DTM from Taiwan MOI
+# Elevation Service with DTM from Taiwan MOI
 
 This provides a REST API service for querying elevations defined in DTM released by Taiwan MOI, which covers:
 
