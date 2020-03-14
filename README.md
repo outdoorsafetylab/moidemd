@@ -6,9 +6,9 @@ This provides a REST API service for querying elevations defined in DTM released
 1. Penghu
 1. Kinmen
 
-# How to use this image
+# How to use (as docker)
 
-1. Start a container running this image:
+1. Start a container running our public [docker image](https://hub.docker.com/r/outdoorsafetylab/moidemd):
     ```shell
     docker run -it --rm -p 8082:8082 outdoorsafetylab/moidemd
     ```
@@ -17,4 +17,4 @@ This provides a REST API service for querying elevations defined in DTM released
     curl -XPOST --data '[[120.957283,23.47]]' http://127.0.0.1:8082/v1/elevations
     ```
 
-For more detail, see our [base project](https://github.com/outdoorsafetylab/demd) and [base image](https://hub.docker.com/r/outdoorsafetylab/demd).
+If you need elevation service for other area, please see our [base project](https://github.com/outdoorsafetylab/demd) for detail.

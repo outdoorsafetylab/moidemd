@@ -12,7 +12,7 @@ RUN wget --no-check-certificate -O dem.7z "http://dtm.moi.gov.tw/tif/金門.7z" 
 RUN wget --no-check-certificate -O dem.7z "http://dtm.moi.gov.tw/tif/澎湖.7z" && 7za x dem.7z
 RUN rm dem.7z
 
-FROM outdoorsafetylab/demd AS runtime
+FROM outdoorsafetylab/demd:1.2.1 AS runtime
 
 RUN mkdir -p /var/lib/dem/
 COPY --from=downloader /dem/*.tif /var/lib/dem/
