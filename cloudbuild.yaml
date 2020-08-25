@@ -1,0 +1,7 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', '${_IMAGE_NAME}', '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_IMAGE_NAME}']
+- name: 'gcr.io/cloud-builders/gcloud'
+  args: ['run', 'deploy', 'moidem-tokyo', '--image', '${_IMAGE_NAME}', '--region', 'asia-northeast1', '--platform', 'managed']
