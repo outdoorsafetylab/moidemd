@@ -10,7 +10,7 @@ This provides a REST API service for querying elevations defined in DTM released
 
 1. Start a container running our public [docker image](https://hub.docker.com/r/outdoorsafetylab/moidemd):
     ```shell
-    docker run -it --rm -p 8082:8082 outdoorsafetylab/moidemd
+    docker run -it --rm -p 8082:8080 outdoorsafetylab/moidemd
     ```
 1. Try to query the elevation of Mt. Jade, highest peak of Taiwan:
     ```shell
