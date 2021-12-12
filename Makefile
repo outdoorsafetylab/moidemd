@@ -1,17 +1,7 @@
-TIF := 台灣本島及4離島\(龜山島_綠島_蘭嶼_小琉球\)/全台不分幅121分帶_含4離島\(龜山島_綠島_蘭嶼_小琉球\).tif
-ARCHIVE := 台灣本島及4離島\(龜山島_綠島_蘭嶼_小琉球\).7z
-SRC := https://dtm.moi.gov.tw/2020dtm20m/台灣本島及4離島\(龜山島_綠島_蘭嶼_小琉球\).7z
-
 IMAGE_NAME := outdoorsafetylab/moidemd
 REPO_NAME ?= outdoorsafetylab/moidemd
 VERSION ?= $(subst v,,$(shell git describe --tags --exact-match 2>/dev/null || echo ""))
 PORT ?= 8080
-
-$(TIF): $(ARCHIVE)
-	7za x $(ARCHIVE)
-
-$(ARCHIVE):
-	wget $(SRC)
 
 # Build docker image.
 #
