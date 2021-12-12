@@ -16,6 +16,26 @@ steps:
   args:
   - x
   - dem.7z
+- name: gcr.io/cloud-builders/gsutil
+  args:
+  - cp
+  - gs://cloudbuild.outdoorsafetylab.org/金門.7z
+  - dem.7z
+- name: crazymax/7zip
+  entrypoint: 7za
+  args:
+  - x
+  - dem.7z
+- name: gcr.io/cloud-builders/gsutil
+  args:
+  - cp
+  - gs://cloudbuild.outdoorsafetylab.org/澎湖.7z
+  - dem.7z
+- name: crazymax/7zip
+  entrypoint: 7za
+  args:
+  - x
+  - dem.7z
 - name: gcr.io/cloud-builders/docker
   args:
   - build
