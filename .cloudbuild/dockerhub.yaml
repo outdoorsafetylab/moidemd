@@ -1,0 +1,41 @@
+steps:
+- name: gcr.io/cloud-builders/gcloud
+  entrypoint: 'bash'
+  args: [ '-c', "gcloud secrets versions access latest --secret=dockerhub_access_token --format='get(payload.data)' | tr '_-' '/+' | base64 -d > dockerhub_password" ]
+- name: gcr.io/cloud-builders/docker
+  entrypoint: 'bash'
+  args: [ '-c', 'docker login --username=$$USERNAME --password-stdin < dockerhub_password']
+  secretEnv: ['USERNAME']
+- name: gcr.io/cloud-builders/gsutil
+  args:
+  - cp
+  - gs://cloudbuild.outdoorsafetylab.org/台灣本島及4離島(龜山島_綠島_蘭嶼_小琉球).7z
+  - dem.7z
+- name: crazymax/7zip
+  entrypoint: 7za
+  args:
+  - x
+  - dem.7z
+- name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - -t
+  - outdoorsafetylab/moidemd
+  - .
+- name: gcr.io/cloud-builders/docker
+  args:
+  - tag
+  - outdoorsafetylab/moidemd
+  - outdoorsafetylab/moidemd:$TAG_NAME
+- name: gcr.io/cloud-builders/docker
+  args:
+  - push
+  - outdoorsafetylab/moidemd
+- name: gcr.io/cloud-builders/docker
+  args:
+  - push
+  - outdoorsafetylab/moidemd:$TAG_NAME
+availableSecrets:
+   secretManager:
+   - versionName: projects/outdoorsafetylab/secrets/dockerhub_username/versions/latest
+     env: USERNAME
