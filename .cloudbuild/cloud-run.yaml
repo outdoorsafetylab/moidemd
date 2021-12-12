@@ -28,3 +28,4 @@ steps:
   - --image=$_IMAGE_NAME
   - --region=$_REGION
   - --platform=managed
+timeout: 60min
