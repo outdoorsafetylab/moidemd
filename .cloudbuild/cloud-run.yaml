@@ -1,4 +1,15 @@
 steps:
+- name: gcr.io/cloud-builders/gcloud
+  entrypoint: curl
+  args:
+  - https://dtm.moi.gov.tw/2020dtm20m/%E5%8F%B0%E7%81%A3%E6%9C%AC%E5%B3%B6%E5%8F%8A4%E9%9B%A2%E5%B3%B6(%E9%BE%9C%E5%B1%B1%E5%B3%B6_%E7%B6%A0%E5%B3%B6_%E8%98%AD%E5%B6%BC_%E5%B0%8F%E7%90%89%E7%90%83).7z
+  - --output
+  - dem.7z
+- name: crazymax/7zip
+  entrypoint: 7za
+  args:
+  - x
+  - dem.7z
 - name: gcr.io/cloud-builders/docker
   args:
   - build
