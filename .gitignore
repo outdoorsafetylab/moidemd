@@ -1,4 +1,7 @@
-*.7z
-*.tfw
+dem/
 *.tif
-*.csv
+*.tfw
+*.zip
+*.7z
+__pycache__/
+*.pyc

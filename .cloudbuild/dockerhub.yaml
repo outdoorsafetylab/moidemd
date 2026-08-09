@@ -6,36 +6,9 @@ steps:
   entrypoint: 'bash'
   args: [ '-c', 'docker login --username=$$USERNAME --password-stdin < dockerhub_password']
   secretEnv: ['USERNAME']
-- name: gcr.io/cloud-builders/gsutil
-  args:
-  - cp
-  - gs://cloudbuild.outdoorsafetylab.org/台灣本島及4離島(龜山島_綠島_蘭嶼_小琉球).7z
-  - dem.7z
-- name: crazymax/7zip
-  entrypoint: 7za
-  args:
-  - x
-  - dem.7z
-- name: gcr.io/cloud-builders/gsutil
-  args:
-  - cp
-  - gs://cloudbuild.outdoorsafetylab.org/金門.7z
-  - dem.7z
-- name: crazymax/7zip
-  entrypoint: 7za
-  args:
-  - x
-  - dem.7z
-- name: gcr.io/cloud-builders/gsutil
-  args:
-  - cp
-  - gs://cloudbuild.outdoorsafetylab.org/澎湖.7z
-  - dem.7z
-- name: crazymax/7zip
-  entrypoint: 7za
-  args:
-  - x
-  - dem.7z
+- name: python:3-slim
+  entrypoint: python3
+  args: ['scripts/fetch-dem.py', 'dem']
 - name: gcr.io/cloud-builders/docker
   args:
   - build
@@ -59,3 +32,6 @@ availableSecrets:
    secretManager:
    - versionName: projects/outdoorsafetylab/secrets/dockerhub_username/versions/latest
      env: USERNAME
+
+# Downloads ~270 MB from tgos.tw and builds a 755 MiB image.
+timeout: 2400s
