@@ -21,8 +21,10 @@ Two things about the distribution are worth knowing:
 """
 import hashlib
 import os
+import ssl
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -61,6 +63,41 @@ class ChecksumError(Exception):
     pass
 
 
+def tls_context():
+    """A verifying context that tolerates tgos.tw's certificate chain.
+
+    OpenSSL 3.5 enables strict RFC 5280 conformance checks, and Python 3.13
+    turns them on by default; one of the CA certificates in tgos.tw's chain
+    has no Subject Key Identifier extension, so the handshake is rejected
+    outright. Clearing that one flag keeps chain and hostname verification --
+    it only stops requiring the certificates to be well-formed by the newer
+    reading. The bytes are pinned by SHA-256 regardless.
+    """
+    ctx = ssl.create_default_context()
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return ctx
+
+
+def is_retryable(err):
+    """Whether another attempt could plausibly succeed.
+
+    A rejected certificate or a 404 will be rejected identically twenty times
+    over; only transport faults and server-side transients are worth repeating.
+
+    urlopen() reports a failed handshake as URLError with the real exception
+    in .reason -- the build log's "<urlopen error [SSL: ...]>" is that wrapper
+    -- so the interesting exception is usually one level down.
+    """
+    if isinstance(err, urllib.error.HTTPError):
+        return err.code == 429 or err.code >= 500
+    if isinstance(err, urllib.error.URLError):
+        reason = err.reason
+        return is_retryable(reason) if isinstance(reason, BaseException) else True
+    if isinstance(err, ssl.SSLCertVerificationError):
+        return False
+    return True
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -71,7 +108,7 @@ def sha256(path):
 
 def remote_size(url):
     req = urllib.request.Request(url, method="HEAD")
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=60, context=tls_context()) as r:
         return int(r.headers.get("Content-Length") or 0)
 
 
@@ -97,7 +134,7 @@ def download(url, path, attempts=20, pause=lambda n: time.sleep(min(2 ** n, 30))
             req = urllib.request.Request(url)
             if have:
                 req.add_header("Range", "bytes=%d-" % have)
-            with urllib.request.urlopen(req, timeout=120) as r:
+            with urllib.request.urlopen(req, timeout=120, context=tls_context()) as r:
                 # A server free to ignore Range answers 200 with the whole
                 # body; appending that to what we have would corrupt the file.
                 if have and getattr(r, "status", r.getcode()) != 206:
@@ -114,6 +151,8 @@ def download(url, path, attempts=20, pause=lambda n: time.sleep(min(2 ** n, 30))
             print("  attempt %d: got %d of %d bytes" % (attempt, got, expected))
         except Exception as e:
             print("  attempt %d: %s" % (attempt, e))
+            if not is_retryable(e):
+                raise RuntimeError("%s: %s" % (url, e)) from e
         if attempt < attempts:
             pause(attempt)
     raise RuntimeError("failed to download %s" % url)
