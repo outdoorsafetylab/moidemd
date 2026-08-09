@@ -9,6 +9,7 @@ on purpose rather than the real one.
 
     usage: test_fetch.py
 """
+import hashlib
 import http.server
 import importlib.util
 import os
@@ -16,6 +17,7 @@ import socketserver
 import sys
 import tempfile
 import threading
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BODY = bytes(range(256)) * 400  # 102400 bytes, easy to compare
@@ -146,6 +148,42 @@ def main():
         check("gives up cleanly", True)
     except Exception as e:
         check("gives up cleanly", False, "%s: %s" % (type(e).__name__, e))
+
+    # Checksums: the extracted rasters must match what is recorded, so a
+    # changed publication stops the build instead of silently changing the
+    # elevations the service returns.
+    zpath = os.path.join(tmp, "a.zip")
+    with zipfile.ZipFile(zpath, "w") as z:
+        z.writestr("d/x.tif", b"raster-bytes")
+        z.writestr("d/x.tfw", b"world-file")
+    good = {"x.tif": hashlib.sha256(b"raster-bytes").hexdigest(),
+            "x.tfw": hashlib.sha256(b"world-file").hexdigest()}
+    out = os.path.join(tmp, "out")
+    os.makedirs(out, exist_ok=True)
+    try:
+        m.extract(zpath, out, good)
+        check("matching checksums accepted", True)
+    except Exception as e:
+        check("matching checksums accepted", False, "%s: %s" % (type(e).__name__, e))
+
+    bad = dict(good, **{"x.tif": "0" * 64})
+    try:
+        m.extract(zpath, out, bad)
+        check("mismatch is rejected", False, "no exception raised")
+    except m.ChecksumError:
+        check("mismatch is rejected", True)
+
+    try:
+        m.extract(zpath, out, {"x.tif": good["x.tif"]})
+        check("unrecorded file is rejected", False, "no exception raised")
+    except m.ChecksumError:
+        check("unrecorded file is rejected", True)
+
+    try:
+        m.extract(zpath, out, dict(good, **{"missing.tif": "0" * 64}))
+        check("absent expected file is rejected", False, "no exception raised")
+    except m.ChecksumError:
+        check("absent expected file is rejected", True)
 
     httpd.shutdown()
     print()

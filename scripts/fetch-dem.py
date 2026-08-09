@@ -6,6 +6,10 @@ archives and not otherwise touched. No reprojection, resampling, compression or
 clipping: the elevations this service returns have to be the government's own
 numbers, checkable against the originals.
 
+That claim is only worth making if it is enforced, so every extracted file is
+checked against a recorded SHA-256. A mismatch stops the build rather than
+quietly baking different terrain into the image.
+
 Two things about the distribution are worth knowing:
 
   * the URLs carry Chinese filenames and the server rejects them unless they
@@ -15,6 +19,7 @@ Two things about the distribution are worth knowing:
 
     usage: fetch-dem.py [<target-dir>]
 """
+import hashlib
 import os
 import sys
 import time
@@ -24,14 +29,44 @@ import zipfile
 
 TGOS = "https://www.tgos.tw/MDE/VirtualDir_TC/Product"
 
-# (subdirectory, product uuid, archive name).
+# (subdirectory, product uuid, archive name, {extracted file: sha256}).
+#
+# The hashes are of the extracted rasters rather than of the archives: they are
+# what ends up in the image and what the provenance claim is about, and they
+# survive the archive being repackaged around identical data.
+#
+# 內政部 updates these irregularly. A mismatch is therefore expected eventually
+# and is not automatically a fault -- but it does mean the served elevations
+# would change, so it has to be a deliberate, reviewed update rather than
+# something a build picks up on its own. See README.md.
 ARCHIVES = [
-    ("2025", "528530be-0710-431e-954e-2f2f5e98b0c5", "不分幅_台灣20MDEM(2025).zip"),
-    ("2025", "47910269-7315-4cd2-9101-7cdf524b47f5", "不分幅_澎湖20MDEM(2025).zip"),
-    ("2025", "0e018335-80f1-4489-990c-ecf2bef1a9b6", "不分幅_金門20MDEM(2025).zip"),
+    ("2025", "528530be-0710-431e-954e-2f2f5e98b0c5", "不分幅_台灣20MDEM(2025).zip", {
+        "DEM_tawiwan_V2025.tif": "59e5e980000d6e3f5a7734c6af197934a1a5432482b6caa789a1ec90b624015d",
+        "DEM_tawiwan_V2025.tfw": "7e497cc09921a3fa2091d1a3680d99721883145ef77f700b88bc4211270ffa32",
+    }),
+    ("2025", "47910269-7315-4cd2-9101-7cdf524b47f5", "不分幅_澎湖20MDEM(2025).zip", {
+        "DEM_Penghu_V2025.tif": "1185ce22a43b9134d60689467ebddb08e5ba14bf7ceef0fce453b158616e7e94",
+        "DEM_Penghu_V2025.tfw": "ca97fa0bcb54b1890c638da4c288a977ebc6a067f5952c99699eda2a669b0bfb",
+    }),
+    ("2025", "0e018335-80f1-4489-990c-ecf2bef1a9b6", "不分幅_金門20MDEM(2025).zip", {
+        "DEM_KinMen_V2025.tif": "51aefce42b8506ec808ca3b7117e95e09f7cc1ba5ebc8538abc4adcee4249bcd",
+        "DEM_KinMen_V2025.tfw": "a34645e62f6ae29e8eb436b395bff9142155de00fcc3b890f17f3b5c278476cd",
+    }),
 ]
 
 KEEP = (".tif", ".tfw")
+
+
+class ChecksumError(Exception):
+    pass
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def remote_size(url):
@@ -84,8 +119,10 @@ def download(url, path, attempts=20, pause=lambda n: time.sleep(min(2 ** n, 30))
     raise RuntimeError("failed to download %s" % url)
 
 
-def extract(archive, target):
+def extract(archive, target, digests):
+    """Unpack the rasters and verify each against its recorded SHA-256."""
     z = zipfile.ZipFile(archive)
+    seen = []
     for info in z.infolist():
         name = info.filename
         try:
@@ -97,24 +134,46 @@ def extract(archive, target):
             continue
         out = os.path.join(target, base)
         with z.open(info) as src, open(out, "wb") as dst:
-            dst.write(src.read())
-        print("  %s (%d bytes)" % (base, os.path.getsize(out)))
+            for chunk in iter(lambda: src.read(1 << 20), b""):
+                dst.write(chunk)
+        want = digests.get(base)
+        if want is None:
+            raise ChecksumError(
+                "%s: no recorded SHA-256 for this file. The archive's contents "
+                "have changed; see README.md before updating." % base)
+        got = sha256(out)
+        if got != want:
+            raise ChecksumError(
+                "%s: SHA-256 mismatch\n"
+                "    recorded %s\n"
+                "    got      %s\n"
+                "  The published data has changed, so the elevations this "
+                "service returns would change too. That has to be a reviewed "
+                "update, not something a build picks up on its own; see "
+                "README.md." % (base, want, got))
+        seen.append(base)
+        print("  %s (%d bytes, sha256 ok)" % (base, os.path.getsize(out)))
+    missing = sorted(set(digests) - set(seen))
+    if missing:
+        raise ChecksumError(
+            "%s: expected but not present in the archive: %s"
+            % (os.path.basename(archive), ", ".join(missing)))
 
 
 def main(root):
     cache = os.path.join(root, ".archives")
     os.makedirs(cache, exist_ok=True)
-    for sub, uuid, name in ARCHIVES:
+    for sub, uuid, name, digests in ARCHIVES:
         target = os.path.join(root, sub)
         os.makedirs(target, exist_ok=True)
         url = "%s/%s/%s" % (TGOS, uuid, urllib.parse.quote(name))
         archive = os.path.join(cache, name)
         print("%s -> %s/" % (name, sub))
         download(url, archive)
-        extract(archive, target)
+        extract(archive, target, digests)
     # Filenames are kept as published, so the Makefile keys off this instead.
     with open(os.path.join(root, ".fetched"), "w") as f:
-        for sub, _, name in ARCHIVES:
+        for sub, _, name, _digests in ARCHIVES:
             f.write("%s\t%s\n" % (sub, name))
 
 

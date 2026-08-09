@@ -67,8 +67,29 @@ this image claims to be.
 
 Every raster is the published file, unpacked from its distribution archive and
 **otherwise untouched** — no reprojection, no resampling, no compression, no
-clipping. Elevations this service returns are the government's numbers, and can
-be checked against the originals byte for byte.
+clipping. Elevations this service returns are the government's numbers.
+
+That claim is enforced rather than asserted: `scripts/fetch-dem.py` records a
+SHA-256 for every extracted raster and refuses to proceed on a mismatch, so a
+truncated download, a substituted file, or a silent republication cannot reach
+the image.
+
+### When 內政部 republishes
+
+Updates are irregular, so a mismatch is expected eventually and is not by
+itself a fault. It does mean the elevations this service returns would change,
+which should be a deliberate decision rather than something a build picks up on
+its own. To take an update:
+
+```shell
+rm -rf dem && make dem          # fails, printing the new digests
+sha256sum dem/2025/*            # record them in scripts/fetch-dem.py
+make verify                     # confirm coverage still matches README.md
+```
+
+Compare a few known points against the previous image before merging — the
+2025 release silently dropped two islands, which is exactly the kind of change
+a digest bump would otherwise wave through.
 
 | Dataset | data.gov.tw | Files used |
 |---|---|---|
