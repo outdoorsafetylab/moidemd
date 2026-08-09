@@ -39,6 +39,14 @@ docker/run:
 		-p $(PORT):$(PORT) \
 		$(IMAGE_NAME)
 
+# Unit tests for the downloader's retry and resume behaviour.
+#
+# Usage:
+#	make test
+
+test:
+	python3 test/test_fetch.py
+
 # Check the image answers for every area README.md claims to cover.
 #
 # Usage:
@@ -69,4 +77,4 @@ ifneq ($(VERSION),)
 	docker push $(REPO_NAME):$(VERSION)
 endif
 
-.PHONY: dem docker/build docker/run verify docker/tag docker/push
+.PHONY: dem test docker/build docker/run verify docker/tag docker/push

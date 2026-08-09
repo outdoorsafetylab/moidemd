@@ -17,6 +17,7 @@ Two things about the distribution are worth knowing:
 """
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 import zipfile
@@ -33,30 +34,54 @@ ARCHIVES = [
 KEEP = (".tif", ".tfw")
 
 
-def download(url, path):
-    # tgos.tw drops long transfers, so resume rather than restart.
-    have = os.path.getsize(path) if os.path.exists(path) else 0
-    for attempt in range(20):
-        req = urllib.request.Request(url)
-        if have:
-            req.add_header("Range", "bytes=%d-" % have)
+def remote_size(url):
+    req = urllib.request.Request(url, method="HEAD")
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return int(r.headers.get("Content-Length") or 0)
+
+
+def download(url, path, attempts=20, pause=lambda n: time.sleep(min(2 ** n, 30))):
+    """Fetch url to path, resuming a partial file rather than restarting.
+
+    tgos.tw drops long transfers -- the main island archive is ~270 MB and
+    rarely arrives in one go -- so every attempt re-reads what is already on
+    disk and asks for the remainder. The expected size is taken from the
+    server so a truncated file is never mistaken for a complete one.
+    """
+    expected = 0
+    for attempt in range(1, attempts + 1):
         try:
+            if not expected:
+                expected = remote_size(url)
+            have = os.path.getsize(path) if os.path.exists(path) else 0
+            if expected and have == expected:
+                return
+            if have > expected:
+                # Left over from a different (or corrupt) fetch.
+                have = 0
+            req = urllib.request.Request(url)
+            if have:
+                req.add_header("Range", "bytes=%d-" % have)
             with urllib.request.urlopen(req, timeout=120) as r:
-                total = have + int(r.headers.get("Content-Length") or 0)
+                # A server free to ignore Range answers 200 with the whole
+                # body; appending that to what we have would corrupt the file.
+                if have and getattr(r, "status", r.getcode()) != 206:
+                    have = 0
                 with open(path, "ab" if have else "wb") as f:
                     while True:
                         chunk = r.read(1 << 20)
                         if not chunk:
                             break
                         f.write(chunk)
-                        have += len(chunk)
+            got = os.path.getsize(path) if os.path.exists(path) else 0
+            if expected and got >= expected:
+                return
+            print("  attempt %d: got %d of %d bytes" % (attempt, got, expected))
         except Exception as e:
-            print("  attempt %d: %s" % (attempt + 1, e))
-        have = os.path.getsize(path)
-        if total and have >= total:
-            return
-        print("  resuming at %d bytes" % have)
-    sys.exit("failed to download %s" % url)
+            print("  attempt %d: %s" % (attempt, e))
+        if attempt < attempts:
+            pause(attempt)
+    raise RuntimeError("failed to download %s" % url)
 
 
 def extract(archive, target):
