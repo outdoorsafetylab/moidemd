@@ -1,5 +1,5 @@
 # Rasters are copied in as published. See README.md "Data provenance".
-FROM outdoorsafetylab/demd:latest
+FROM outdoorsafetylab/demd:2.0.0
 
 COPY dem/2025/ /var/lib/dem/
 
