@@ -6,7 +6,7 @@ steps:
   entrypoint: 'bash'
   args: [ '-c', 'docker login --username=$$USERNAME --password-stdin < dockerhub_password']
   secretEnv: ['USERNAME']
-- name: python:3-slim
+- name: python:3.14-slim
   entrypoint: python3
   args: ['scripts/fetch-dem.py', 'dem']
 - name: gcr.io/cloud-builders/docker

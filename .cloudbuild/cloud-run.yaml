@@ -1,5 +1,5 @@
 steps:
-- name: python:3-slim
+- name: python:3.14-slim
   entrypoint: python3
   args: ['scripts/fetch-dem.py', 'dem']
 - name: gcr.io/cloud-builders/docker

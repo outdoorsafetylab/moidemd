@@ -149,6 +149,20 @@ def main():
     except Exception as e:
         check("gives up cleanly", False, "%s: %s" % (type(e).__name__, e))
 
+    # A rejected certificate or a 404 will be rejected identically every time;
+    # burning the whole retry budget on one costs ~20 minutes of build for
+    # nothing, which is how this classification came to exist.
+    import ssl, urllib.error
+    check("SSL cert failure is not retryable", not m.is_retryable(
+        ssl.SSLCertVerificationError("Missing Subject Key Identifier")))
+    check("404 is not retryable", not m.is_retryable(
+        urllib.error.HTTPError("u", 404, "Not Found", None, None)))
+    check("503 is retryable", m.is_retryable(
+        urllib.error.HTTPError("u", 503, "Service Unavailable", None, None)))
+    check("429 is retryable", m.is_retryable(
+        urllib.error.HTTPError("u", 429, "Too Many Requests", None, None)))
+    check("connection error is retryable", m.is_retryable(OSError("reset")))
+
     # Checksums: the extracted rasters must match what is recorded, so a
     # changed publication stops the build instead of silently changing the
     # elevations the service returns.
