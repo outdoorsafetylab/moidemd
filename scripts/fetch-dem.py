@@ -83,11 +83,18 @@ def is_retryable(err):
 
     A rejected certificate or a 404 will be rejected identically twenty times
     over; only transport faults and server-side transients are worth repeating.
+
+    urlopen() reports a failed handshake as URLError with the real exception
+    in .reason -- the build log's "<urlopen error [SSL: ...]>" is that wrapper
+    -- so the interesting exception is usually one level down.
     """
-    if isinstance(err, ssl.SSLCertVerificationError):
-        return False
     if isinstance(err, urllib.error.HTTPError):
         return err.code == 429 or err.code >= 500
+    if isinstance(err, urllib.error.URLError):
+        reason = err.reason
+        return is_retryable(reason) if isinstance(reason, BaseException) else True
+    if isinstance(err, ssl.SSLCertVerificationError):
+        return False
     return True
 
 

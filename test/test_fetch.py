@@ -153,8 +153,15 @@ def main():
     # burning the whole retry budget on one costs ~20 minutes of build for
     # nothing, which is how this classification came to exist.
     import ssl, urllib.error
-    check("SSL cert failure is not retryable", not m.is_retryable(
-        ssl.SSLCertVerificationError("Missing Subject Key Identifier")))
+    cert_err = ssl.SSLCertVerificationError("Missing Subject Key Identifier")
+    check("bare cert failure is not retryable", not m.is_retryable(cert_err))
+    # This is the shape production actually sees: urlopen wraps a failed
+    # handshake in URLError. Asserting only the bare exception let the
+    # classifier pass the test while retrying the real thing twenty times.
+    check("urlopen-wrapped cert failure is not retryable",
+          not m.is_retryable(urllib.error.URLError(cert_err)))
+    check("URLError with a string reason is retryable",
+          m.is_retryable(urllib.error.URLError("connection reset")))
     check("404 is not retryable", not m.is_retryable(
         urllib.error.HTTPError("u", 404, "Not Found", None, None)))
     check("503 is retryable", m.is_retryable(
@@ -162,6 +169,25 @@ def main():
     check("429 is retryable", m.is_retryable(
         urllib.error.HTTPError("u", 429, "Too Many Requests", None, None)))
     check("connection error is retryable", m.is_retryable(OSError("reset")))
+
+    # ...and that download() acts on the classification rather than merely
+    # computing it: a fatal error must not consume the retry budget.
+    calls = []
+    original = m.remote_size
+
+    def boom(_url):
+        raise urllib.error.URLError(cert_err)
+
+    m.remote_size = boom
+    try:
+        m.download("https://example.invalid/x", os.path.join(tmp, "never.bin"),
+                   attempts=20, pause=lambda n: calls.append(n))
+        check("fatal error stops on the first attempt", False, "no exception raised")
+    except RuntimeError:
+        check("fatal error stops on the first attempt", not calls,
+              "%d retries" % len(calls))
+    finally:
+        m.remote_size = original
 
     # Checksums: the extracted rasters must match what is recorded, so a
     # changed publication stops the build instead of silently changing the
