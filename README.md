@@ -90,6 +90,20 @@ make verify                     # 重建 image 後，比對覆蓋範圍是否仍
 
 合併前請挑幾個已知點與前一版 image 比對 —— 2025 年版無聲無息地掉了兩座島，而那正是單純更新雜湊值會直接放行的那種改變。
 
+## 建置環境
+
+`scripts/fetch-dem.py` 取用的 tgos.tw **對台灣以外的來源 IP 回傳 403**。實測 Cloud Build worker：
+
+| region | 對外 IP | 結果 |
+|---|---|---|
+| `asia-east1` | 34.81.101.227 | 200 |
+| `asia-northeast1` | 35.189.159.151 | 403 |
+| `global`（us-central1） | 34.61.42.12 | 403 |
+
+阻擋依據是地理位置，不是 User-Agent 或 ASN —— 換成瀏覽器 UA 一樣被拒。因此 **Cloud Build trigger 必須建在 `asia-east1`**，把它移到其他區域或改回 global，唯一的症狀就是取檔步驟失敗。
+
+在台灣本地執行 `make dem` 不受影響。
+
 ## 與 demd 的關係
 
 這個 repo 只有資料與封裝。其餘的一切 —— API、座標處理、`-A` 與 `-m` 等參數、測試套件 —— 都在 [demd](https://github.com/outdoorsafetylab/demd)。若你需要的是其他地區的高程服務，請從那裡開始。
