@@ -1,3 +1,15 @@
+# NOTE: this build must run in the asia-east1 region.
+#
+# tgos.tw, which serves the rasters, answers 403 to requests from outside
+# Taiwan. Measured from Cloud Build workers:
+#
+#   asia-east1       34.81.101.227   200
+#   asia-northeast1  35.189.159.151  403
+#   global (us)      34.61.42.12     403
+#
+# It is geographic rather than by User-Agent or ASN -- a browser User-Agent is
+# refused just the same. Moving these triggers to any other region, or back to
+# global, breaks the fetch step with no other symptom.
 steps:
 - name: python:3.14-slim
   entrypoint: python3
