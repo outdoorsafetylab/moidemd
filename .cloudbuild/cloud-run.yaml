@@ -1,34 +1,7 @@
 steps:
-- name: gcr.io/cloud-builders/gsutil
-  args:
-  - cp
-  - gs://cloudbuild.outdoorsafetylab.org/台灣本島及4離島(龜山島_綠島_蘭嶼_小琉球).7z
-  - dem.7z
-- name: crazymax/7zip
-  entrypoint: 7za
-  args:
-  - x
-  - dem.7z
-- name: gcr.io/cloud-builders/gsutil
-  args:
-  - cp
-  - gs://cloudbuild.outdoorsafetylab.org/金門.7z
-  - dem.7z
-- name: crazymax/7zip
-  entrypoint: 7za
-  args:
-  - x
-  - dem.7z
-- name: gcr.io/cloud-builders/gsutil
-  args:
-  - cp
-  - gs://cloudbuild.outdoorsafetylab.org/澎湖.7z
-  - dem.7z
-- name: crazymax/7zip
-  entrypoint: 7za
-  args:
-  - x
-  - dem.7z
+- name: python:3-slim
+  entrypoint: python3
+  args: ['scripts/fetch-dem.py', 'dem']
 - name: gcr.io/cloud-builders/docker
   args:
   - build
@@ -47,3 +20,6 @@ steps:
   - --image=$_IMAGE_NAME
   - --region=$_REGION
   - --platform=managed
+
+# Downloads ~270 MB from tgos.tw and builds a 755 MiB image.
+timeout: 2400s

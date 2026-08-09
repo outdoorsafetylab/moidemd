@@ -1,0 +1,11 @@
+.git
+.github
+.cloudbuild
+scripts
+Makefile
+README.md
+LICENSE
+
+# The downloaded archives; only the unpacked rasters are copied in.
+dem/.archives
+dem/.fetched
