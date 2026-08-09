@@ -84,8 +84,11 @@ its own. To take an update:
 ```shell
 rm -rf dem && make dem          # fails, printing the new digests
 sha256sum dem/2025/*            # record them in scripts/fetch-dem.py
-make verify                     # confirm coverage still matches README.md
+make verify                     # rebuilds, then checks coverage against README.md
 ```
+
+`make verify` builds the image first, so it is the new rasters being checked
+and not whatever was published last.
 
 Compare a few known points against the previous image before merging — the
 2025 release silently dropped two islands, which is exactly the kind of change

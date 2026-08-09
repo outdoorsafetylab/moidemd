@@ -49,10 +49,18 @@ test:
 
 # Check the image answers for every area README.md claims to cover.
 #
+# Depends on docker/build on purpose: without it this verifies whatever image
+# happens to carry that name locally, and on a clean machine docker would pull
+# the published one -- so a run against freshly fetched rasters would pass
+# without ever touching them.
+#
+# To check an already-published image instead, call the script directly:
+#	./scripts/verify-coverage.sh outdoorsafetylab/moidemd:2020
+#
 # Usage:
 #	make verify
 
-verify:
+verify: docker/build
 	./scripts/verify-coverage.sh $(IMAGE_NAME)
 
 # Tag docker images.
