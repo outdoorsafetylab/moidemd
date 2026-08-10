@@ -111,13 +111,20 @@ def sha256(path):
     return h.hexdigest()
 
 
+DEFAULT_ATTEMPTS = 20
+
+
+def default_pause(n):
+    time.sleep(min(2 ** n, 30))
+
+
 def remote_size(url):
     req = urllib.request.Request(url, method="HEAD")
     with urllib.request.urlopen(req, timeout=60, context=tls_context()) as r:
         return int(r.headers.get("Content-Length") or 0)
 
 
-def download(url, path, attempts=20, pause=lambda n: time.sleep(min(2 ** n, 30))):
+def download(url, path, attempts=DEFAULT_ATTEMPTS, pause=default_pause):
     """Fetch url to path, resuming a partial file rather than restarting.
 
     tgos.tw drops long transfers -- the main island archive is ~270 MB and
@@ -204,27 +211,45 @@ def extract(archive, target, digests):
             % (os.path.basename(archive), ", ".join(missing)))
 
 
-def check_urls():
+def probe(url, attempts=DEFAULT_ATTEMPTS, pause=default_pause):
+    """remote_size() under the same retry policy the download uses.
+
+    Without this the preflight is stricter than the thing it guards: one
+    transient 5xx would abort a build that the downloader would have ridden
+    out.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return remote_size(url)
+        except Exception as e:
+            if not is_retryable(e) or attempt == attempts:
+                raise
+            print("  retry %d/%d %s" % (attempt, attempts, e))
+            pause(attempt)
+
+
+def check_urls(attempts=DEFAULT_ATTEMPTS, pause=default_pause):
     """HEAD every archive before fetching any of them.
 
     A wrong URL is otherwise indistinguishable from a withdrawn file, and only
-    surfaces after the earlier downloads have already run. Reporting all of
-    them together, in seconds, keeps a typo from looking like an outage.
+    surfaces after the earlier downloads have already run. Every archive is
+    probed even once one has failed, so a single run reports the whole picture
+    rather than the first problem.
     """
     bad = []
     for _sub, uuid, name, _digests in ARCHIVES:
         url = "%s/%s/%s" % (TGOS, uuid, urllib.parse.quote(name))
         try:
-            size = remote_size(url)
-            print("  ok   %-34s %d bytes" % (name, size))
+            print("  ok   %-34s %d bytes" % (name, probe(url, attempts, pause)))
         except Exception as e:
             print("  FAIL %-34s %s" % (name, e))
             bad.append((name, e))
     if bad:
         raise RuntimeError(
-            "%d of %d archives are not reachable; check the 連結網址 column of "
-            "the index at https://data.gov.tw/dataset/176927 -- the filename "
-            "there differs from the 圖資名稱" % (len(bad), len(ARCHIVES)))
+            "%d of %d archives are not reachable (%s); check the 連結網址 column "
+            "of the index at https://data.gov.tw/dataset/176927 -- for the main "
+            "island the filename there is not the 圖資名稱 beside it"
+            % (len(bad), len(ARCHIVES), ", ".join(n for n, _ in bad)))
 
 
 def main(root):
