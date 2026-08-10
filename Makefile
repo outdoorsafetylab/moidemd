@@ -47,6 +47,16 @@ docker/run:
 test:
 	python3 test/test_fetch.py
 
+# Confirm every published archive URL still resolves. The index's 圖資名稱 and
+# its 連結網址 filename are not the same string for every entry, so a typo in
+# one looks exactly like a withdrawn file.
+#
+# Usage:
+#	make check-urls
+
+check-urls:
+	python3 scripts/fetch-dem.py --check
+
 # Check the image answers for every area README.md claims to cover.
 #
 # Depends on docker/build on purpose: without it this verifies whatever image
@@ -85,4 +95,4 @@ ifneq ($(VERSION),)
 	docker push $(REPO_NAME):$(VERSION)
 endif
 
-.PHONY: dem test docker/build docker/run verify docker/tag docker/push
+.PHONY: dem test check-urls docker/build docker/run verify docker/tag docker/push

@@ -33,6 +33,11 @@ TGOS = "https://www.tgos.tw/MDE/VirtualDir_TC/Product"
 
 # (subdirectory, product uuid, archive name, {extracted file: sha256}).
 #
+# The archive name is the filename from the index's 連結網址 column, which is
+# NOT the 圖資名稱 shown beside it: the main-island archive is published as
+# 不分幅_全台20MDEM(2025).zip while its display name reads 台灣. Penghu and
+# Kinmen happen to agree, so checking one of those proves nothing about this.
+#
 # The hashes are of the extracted rasters rather than of the archives: they are
 # what ends up in the image and what the provenance claim is about, and they
 # survive the archive being repackaged around identical data.
@@ -42,7 +47,7 @@ TGOS = "https://www.tgos.tw/MDE/VirtualDir_TC/Product"
 # would change, so it has to be a deliberate, reviewed update rather than
 # something a build picks up on its own. See README.md.
 ARCHIVES = [
-    ("2025", "528530be-0710-431e-954e-2f2f5e98b0c5", "不分幅_台灣20MDEM(2025).zip", {
+    ("2025", "528530be-0710-431e-954e-2f2f5e98b0c5", "不分幅_全台20MDEM(2025).zip", {
         "DEM_tawiwan_V2025.tif": "59e5e980000d6e3f5a7734c6af197934a1a5432482b6caa789a1ec90b624015d",
         "DEM_tawiwan_V2025.tfw": "7e497cc09921a3fa2091d1a3680d99721883145ef77f700b88bc4211270ffa32",
     }),
@@ -199,7 +204,31 @@ def extract(archive, target, digests):
             % (os.path.basename(archive), ", ".join(missing)))
 
 
+def check_urls():
+    """HEAD every archive before fetching any of them.
+
+    A wrong URL is otherwise indistinguishable from a withdrawn file, and only
+    surfaces after the earlier downloads have already run. Reporting all of
+    them together, in seconds, keeps a typo from looking like an outage.
+    """
+    bad = []
+    for _sub, uuid, name, _digests in ARCHIVES:
+        url = "%s/%s/%s" % (TGOS, uuid, urllib.parse.quote(name))
+        try:
+            size = remote_size(url)
+            print("  ok   %-34s %d bytes" % (name, size))
+        except Exception as e:
+            print("  FAIL %-34s %s" % (name, e))
+            bad.append((name, e))
+    if bad:
+        raise RuntimeError(
+            "%d of %d archives are not reachable; check the 連結網址 column of "
+            "the index at https://data.gov.tw/dataset/176927 -- the filename "
+            "there differs from the 圖資名稱" % (len(bad), len(ARCHIVES)))
+
+
 def main(root):
+    check_urls()
     cache = os.path.join(root, ".archives")
     os.makedirs(cache, exist_ok=True)
     for sub, uuid, name, digests in ARCHIVES:
@@ -217,4 +246,8 @@ def main(root):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "dem")
+    args = sys.argv[1:]
+    if "--check" in args:
+        check_urls()
+    else:
+        main(args[0] if args else "dem")
