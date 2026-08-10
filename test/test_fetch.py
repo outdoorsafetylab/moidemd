@@ -268,13 +268,17 @@ def main():
 
         reset()
         m.ARCHIVES = entries("f.bin", "missing.bin", "f.bin")
-        seen_before = Handler.seen
         try:
             quiet(m.check_urls, pause=nopause)
             check("preflight fails when one is unreachable", False, "no exception")
         except RuntimeError as e:
             check("preflight fails when one is unreachable", True)
             check("names the unreachable archive", "missing.bin" in str(e), str(e)[:60])
+        # One HEAD per archive and no more: a 404 must not consume the retry
+        # budget. Without this the assertions above pass just as happily on a
+        # probe() that repeated the 404 twenty times before giving up.
+        check("fatal preflight error is not retried", Handler.seen == 3,
+              "%d HEADs for 3 archives" % Handler.seen)
 
         # Every entry probed, not just up to the first failure: HEAD is cheap
         # and one run should show the whole picture.
