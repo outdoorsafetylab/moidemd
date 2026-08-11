@@ -9,8 +9,10 @@ on purpose rather than the real one.
 
     usage: test_fetch.py
 """
+import contextlib
 import hashlib
 import http.server
+import io
 import importlib.util
 import os
 import socketserver
@@ -23,6 +25,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BODY = bytes(range(256)) * 400  # 102400 bytes, easy to compare
 
 failures = []
+
+
+def quiet(fn, *a, **kw):
+    """Run fn with stdout captured: several of these calls are meant to fail,
+    and check_urls() prints failures in a format close enough to this file's
+    own FAIL lines to look like a broken suite."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        return fn(*a, **kw)
 
 
 def check(name, ok, detail=""):
@@ -44,12 +54,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
     cut_after = None
     ignore_range = False
     fail_times = 0
-    seen = 0
+    seen = 0   # every request
+    gets = 0   # body transfers only
 
     def log_message(self, *a):
         pass
 
     def do_HEAD(self):
+        cls = type(self)
+        cls.seen += 1
+        if cls.fail_times > 0:
+            cls.fail_times -= 1
+            self.send_response(503); self.send_header("Content-Length", "0"); self.end_headers()
+            return
+        if not self.path.endswith("/f.bin"):
+            self.send_response(404); self.send_header("Content-Length", "0"); self.end_headers()
+            return
         self.send_response(200)
         self.send_header("Content-Length", str(len(BODY)))
         self.end_headers()
@@ -57,6 +77,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         cls = type(self)
         cls.seen += 1
+        cls.gets += 1
         if cls.fail_times > 0:
             cls.fail_times -= 1
             self.send_response(503)
@@ -91,6 +112,7 @@ def reset(**kw):
     Handler.ignore_range = kw.get("ignore_range", False)
     Handler.fail_times = kw.get("fail_times", 0)
     Handler.seen = 0
+    Handler.gets = 0
 
 
 def main():
@@ -130,7 +152,7 @@ def main():
     # An already-complete file must not be fetched again.
     reset()
     m.download(url, path, pause=nopause)
-    check("complete file is not refetched", Handler.seen == 0, "%d GETs" % Handler.seen)
+    check("complete file is not refetched", Handler.gets == 0, "%d GETs" % Handler.gets)
 
     # The bug this suite was written for: the first failure used to raise
     # FileNotFoundError/UnboundLocalError instead of retrying.
@@ -224,6 +246,72 @@ def main():
         check("absent expected file is rejected", False, "no exception raised")
     except m.ChecksumError:
         check("absent expected file is rejected", True)
+
+    # The preflight added in #6. It guards against a mistyped URL looking like
+    # an upstream withdrawal, so what matters is that it probes every archive
+    # rather than stopping at the first, that it does not start any download
+    # when something is unreachable, and that it is no stricter than the
+    # downloader it guards -- a transient 5xx must not abort the build.
+    print()
+    saved_tgos, saved_archives = m.TGOS, m.ARCHIVES
+    base = url.rsplit("/", 1)[0]
+    m.TGOS = base
+
+    def entries(*names):
+        return [("2025", "u", n, {}) for n in names]
+
+    try:
+        reset()
+        m.ARCHIVES = entries("f.bin", "f.bin", "f.bin")
+        quiet(m.check_urls, pause=nopause)
+        check("preflight passes when all reachable", True)
+
+        reset()
+        m.ARCHIVES = entries("f.bin", "missing.bin", "f.bin")
+        try:
+            quiet(m.check_urls, pause=nopause)
+            check("preflight fails when one is unreachable", False, "no exception")
+        except RuntimeError as e:
+            check("preflight fails when one is unreachable", True)
+            check("names the unreachable archive", "missing.bin" in str(e), str(e)[:60])
+        # One HEAD per archive and no more: a 404 must not consume the retry
+        # budget. Without this the assertions above pass just as happily on a
+        # probe() that repeated the 404 twenty times before giving up.
+        check("fatal preflight error is not retried", Handler.seen == 3,
+              "%d HEADs for 3 archives" % Handler.seen)
+
+        # Every entry probed, not just up to the first failure: HEAD is cheap
+        # and one run should show the whole picture.
+        reset()
+        m.ARCHIVES = entries("missing1.bin", "missing2.bin", "missing3.bin")
+        try:
+            quiet(m.check_urls, pause=nopause)
+        except RuntimeError as e:
+            check("all failures reported together",
+                  all(n in str(e) for n in ("missing1.bin", "missing2.bin", "missing3.bin")),
+                  str(e)[:70])
+
+        # A retryable failure must be ridden out, not treated as fatal.
+        reset(fail_times=2)
+        m.ARCHIVES = entries("f.bin")
+        try:
+            quiet(m.check_urls, pause=nopause)
+            check("preflight retries a transient 5xx", True)
+        except RuntimeError as e:
+            check("preflight retries a transient 5xx", False, str(e)[:60])
+
+        # ...and main() must not download anything when the preflight fails.
+        reset()
+        m.ARCHIVES = entries("missing.bin")
+        target = tempfile.mkdtemp(prefix="fetch-test-main-")
+        try:
+            quiet(m.main, target)
+            check("no download when preflight fails", False, "main() did not raise")
+        except RuntimeError:
+            check("no download when preflight fails", Handler.gets == 0,
+                  "%d GETs" % Handler.gets)
+    finally:
+        m.TGOS, m.ARCHIVES = saved_tgos, saved_archives
 
     httpd.shutdown()
     print()
