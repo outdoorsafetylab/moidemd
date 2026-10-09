@@ -16,7 +16,9 @@ DEM_STAMP := $(DEM)/.fetched
 
 dem: $(DEM_STAMP)
 
-$(DEM_STAMP):
+# The stamp depends on the fetcher, which holds the archive table: a checkout
+# that moves to a new edition re-fetches instead of building from the old one.
+$(DEM_STAMP): scripts/fetch-dem.py
 	python3 scripts/fetch-dem.py $(DEM)
 
 # Build docker image.
