@@ -34,9 +34,17 @@ TGOS = "https://www.tgos.tw/MDE/VirtualDir_TC/Product"
 # (subdirectory, product uuid, archive name, {extracted file: sha256}).
 #
 # The archive name is the filename from the index's 連結網址 column, which is
-# NOT the 圖資名稱 shown beside it: the main-island archive is published as
-# 不分幅_全台20MDEM(2025).zip while its display name reads 台灣. Penghu and
-# Kinmen happen to agree, so checking one of those proves nothing about this.
+# NOT always the 圖資名稱 shown beside it: the 2025 main-island archive is
+# published as 不分幅_全台20MDEM(2025).zip while its display name reads 台灣.
+# Checking one entry proves nothing about the others.
+#
+# The 2026 edition (data.gov.tw/dataset/178729) publishes the main island as
+# one raster, but Kinmen only as per-sheet ASCII point lists (E N H per line,
+# no coordinate system in the file) that demd cannot read as published, and
+# its Penghu link is the 2025 file. So this image serves the 2026 main island
+# with Penghu and Kinmen from the 2025 edition (data.gov.tw/dataset/176927),
+# each raster exactly as published. The subdirectory names the image's edition,
+# not every file's.
 #
 # The hashes are of the extracted rasters rather than of the archives: they are
 # what ends up in the image and what the provenance claim is about, and they
@@ -47,15 +55,15 @@ TGOS = "https://www.tgos.tw/MDE/VirtualDir_TC/Product"
 # would change, so it has to be a deliberate, reviewed update rather than
 # something a build picks up on its own. See README.md.
 ARCHIVES = [
-    ("2025", "528530be-0710-431e-954e-2f2f5e98b0c5", "不分幅_全台20MDEM(2025).zip", {
-        "DEM_tawiwan_V2025.tif": "59e5e980000d6e3f5a7734c6af197934a1a5432482b6caa789a1ec90b624015d",
-        "DEM_tawiwan_V2025.tfw": "7e497cc09921a3fa2091d1a3680d99721883145ef77f700b88bc4211270ffa32",
+    ("2026", "915aa7e9-d952-4cec-8bf3-aca264254e9b", "不分幅_全台20MDEM(2026).zip", {
+        "DEMg_tawiwan_20m_20260228_g14_update.tif": "f05912e2233b40497c1b9d7f469893f668823f72005a949e9634ce69303d0e3f",
+        "DEMg_tawiwan_20m_20260228_g14_update.tfw": "7e497cc09921a3fa2091d1a3680d99721883145ef77f700b88bc4211270ffa32",
     }),
-    ("2025", "47910269-7315-4cd2-9101-7cdf524b47f5", "不分幅_澎湖20MDEM(2025).zip", {
+    ("2026", "47910269-7315-4cd2-9101-7cdf524b47f5", "不分幅_澎湖20MDEM(2025).zip", {
         "DEM_Penghu_V2025.tif": "1185ce22a43b9134d60689467ebddb08e5ba14bf7ceef0fce453b158616e7e94",
         "DEM_Penghu_V2025.tfw": "ca97fa0bcb54b1890c638da4c288a977ebc6a067f5952c99699eda2a669b0bfb",
     }),
-    ("2025", "0e018335-80f1-4489-990c-ecf2bef1a9b6", "不分幅_金門20MDEM(2025).zip", {
+    ("2026", "0e018335-80f1-4489-990c-ecf2bef1a9b6", "不分幅_金門20MDEM(2025).zip", {
         "DEM_KinMen_V2025.tif": "51aefce42b8506ec808ca3b7117e95e09f7cc1ba5ebc8538abc4adcee4249bcd",
         "DEM_KinMen_V2025.tfw": "a34645e62f6ae29e8eb436b395bff9142155de00fcc3b890f17f3b5c278476cd",
     }),
@@ -247,8 +255,9 @@ def check_urls(attempts=DEFAULT_ATTEMPTS, pause=default_pause):
     if bad:
         raise RuntimeError(
             "%d of %d archives are not reachable (%s); check the 連結網址 column "
-            "of the index at https://data.gov.tw/dataset/176927 -- for the main "
-            "island the filename there is not the 圖資名稱 beside it"
+            "of the indexes at https://data.gov.tw/dataset/178729 (main island) "
+            "and https://data.gov.tw/dataset/176927 (Penghu, Kinmen) -- the "
+            "filename there is not always the 圖資名稱 beside it"
             % (len(bad), len(ARCHIVES), ", ".join(n for n, _ in bad)))
 
 
