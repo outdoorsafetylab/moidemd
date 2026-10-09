@@ -47,7 +47,7 @@ CASES=(
     "基隆嶼|121.7833|25.1917|value"
     "蘭嶼|121.5583|22.0417|value"
     "小琉球|120.3650|22.3420|value"
-    # Dropped by the 2025 release; see README.md and issue #2.
+    # Dropped by the 2025 release and not restored by 2026; see README.md and issue #2.
     "綠島|121.4900|22.6575|null"
     "龜山島|121.9557|24.8386|null"
     # Never covered by any MOI 20 m release.
